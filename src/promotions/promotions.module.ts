@@ -10,6 +10,8 @@ import { PromotionsController } from './promotions.controller';
   ],
   providers: [PromotionsService],
   controllers: [PromotionsController],
-  exports: [MongooseModule] // Export MongooseModule to make the Promotion model available
+
+  exports: [MongooseModule, PromotionsService], // Export MongooseModule to make the Promotion model available
+
 })
 export class PromotionsModule {}

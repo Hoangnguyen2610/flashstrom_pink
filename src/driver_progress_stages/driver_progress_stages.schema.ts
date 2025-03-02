@@ -2,8 +2,8 @@ import { Schema, Document } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
 const LocationSchema = new Schema({
-  latitude: { type: Number, required: true },
-  longitude: { type: Number, required: true }
+  lat: { type: Number, required: true },
+  lng: { type: Number, required: true }
 });
 
 const WeatherSchema = new Schema({
@@ -12,7 +12,10 @@ const WeatherSchema = new Schema({
 });
 
 const StateDetailsSchema = new Schema({
-  location: { type: LocationSchema },
+  location: {
+    lat: { type: Number },
+    lng: { type: Number }
+  },
   estimated_time: { type: Number },
   actual_time: { type: Number },
   notes: { type: String },
@@ -101,8 +104,8 @@ export interface DriverProgressStage extends Document {
     duration: number;
     details?: {
       location?: {
-        latitude: number;
-        longitude: number;
+        lat: number;
+        lng: number;
       };
       estimated_time?: number;
       actual_time?: number;
@@ -124,8 +127,8 @@ export interface DriverProgressStage extends Document {
     event_timestamp: Date;
     event_details?: {
       location?: {
-        latitude: number;
-        longitude: number;
+        lat: number;
+        lng: number;
       };
       notes?: string;
     };

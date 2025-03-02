@@ -222,9 +222,9 @@ export class RestaurantsService {
         .populate('promotions', '-created_at -updated_at') // Populate promotions with full promotion documents
         .populate('specialize_in', '-created_at -updated_at') // Populate specialize_in with full food category documents
         .exec();
-      if (!restaurants || restaurants.length === 0) {
-        return createResponse('NotFound', [], 'No restaurants found');
-      }
+      // if (!restaurants || restaurants.length === 0) {
+      //   return createResponse('NotFound', [], 'No restaurants found');
+      // }
       return createResponse('OK', restaurants, 'Fetched all restaurants');
     } catch (error) {
       console.error('Error fetching restaurants:', error);

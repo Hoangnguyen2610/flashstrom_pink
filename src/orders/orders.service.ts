@@ -61,106 +61,6 @@ export class OrdersService {
         return createResponse('NotFound', null, 'Order not found');
       }
 
-      if (updateOrderDto.driver_id || updateOrderDto.status) {
-        if (updateOrderDto.driver_id && !order.driver_id) {
-          // Initialize all 5 stages with their default states
-          const initialStages = [
-            'driver_ready',
-            'waiting_for_pickup',
-            'restaurant_pickup',
-            'en_route_to_customer',
-            'delivery_complete'
-          ].map((state, index) => ({
-            state,
-            status: index === 0 ? 'in_progress' : 'pending',
-            timestamp: new Date(),
-            duration: 0,
-            details: {
-              location: null,
-              estimated_time: null,
-              actual_time: null,
-              notes: null,
-              tip: null,
-              weather: null
-            }
-          }));
-
-          await this.driverProgressStageModel.create({
-            driver_id: updateOrderDto.driver_id,
-            order_ids: [id],
-            current_state: 'driver_ready',
-            stages: initialStages
-          });
-        }
-
-        if (updateOrderDto.status) {
-          const progressStage = await this.driverProgressStageModel.findOne({
-            order_ids: id,
-            current_state: { $ne: 'delivery_complete' }
-          });
-
-          if (progressStage) {
-            let newState = '';
-            switch (updateOrderDto.status) {
-              case 'RESTAURANT_ACCEPTED':
-                newState = 'waiting_for_pickup';
-                break;
-              case 'IN_PROGRESS':
-                newState = 'restaurant_pickup';
-                break;
-              case 'DELIVERED':
-                newState = 'delivery_complete';
-                break;
-            }
-
-            if (newState) {
-              const stageOrder = [
-                'driver_ready',
-                'waiting_for_pickup',
-                'restaurant_pickup',
-                'en_route_to_customer',
-                'delivery_complete'
-              ];
-
-              const currentStageIndex = stageOrder.indexOf(
-                progressStage.current_state
-              );
-              const newStageIndex = stageOrder.indexOf(newState);
-
-              // Update all stages' statuses
-              const updatedStages = progressStage.stages.map(
-                (stage, index) => ({
-                  ...stage,
-                  status:
-                    index < newStageIndex
-                      ? 'completed'
-                      : index === newStageIndex
-                        ? 'in_progress'
-                        : 'pending',
-                  duration:
-                    index <= currentStageIndex
-                      ? (new Date().getTime() -
-                          new Date(stage.timestamp).getTime()) /
-                        1000
-                      : 0,
-                  timestamp:
-                    index === newStageIndex ? new Date() : stage.timestamp
-                })
-              );
-
-              await this.driverProgressStageModel.findByIdAndUpdate(
-                progressStage._id,
-                {
-                  current_state: newState,
-                  previous_state: progressStage.current_state,
-                  stages: updatedStages
-                }
-              );
-            }
-          }
-        }
-      }
-
       const updatedOrder = await this.orderModel
         .findByIdAndUpdate(id, updateOrderDto, { new: true })
         .exec();
@@ -182,7 +82,10 @@ export class OrdersService {
 
   async findOne(id: string): Promise<ApiResponse<Order>> {
     try {
-      const order = await this.orderModel.findById(id).exec();
+      const order = await this.orderModel
+        .findById(id)
+        .populate('customer_location')
+        .exec();
       return this.handleOrderResponse(order);
     } catch (error) {
       return this.handleError('Error fetching order:', error);
@@ -209,67 +112,6 @@ export class OrdersService {
       const order = await this.orderModel.findById(orderId);
       if (!order) {
         return createResponse('NotFound', null, 'Order not found');
-      }
-
-      const progressStage = await this.driverProgressStageModel.findOne({
-        order_ids: orderId,
-        current_state: { $ne: 'delivery_complete' }
-      });
-
-      if (progressStage) {
-        let newState = '';
-        switch (status) {
-          case 'RESTAURANT_ACCEPTED':
-            newState = 'waiting_for_pickup';
-            break;
-          case 'IN_PROGRESS':
-            newState = 'driver_ready';
-            break;
-          case 'DELIVERED':
-            newState = 'delivery_complete';
-            break;
-        }
-
-        if (newState) {
-          const stageOrder = [
-            'driver_ready',
-            'waiting_for_pickup',
-            'restaurant_pickup',
-            'en_route_to_customer',
-            'delivery_complete'
-          ];
-
-          const currentStageIndex = stageOrder.indexOf(
-            progressStage.current_state
-          );
-          const newStageIndex = stageOrder.indexOf(newState);
-
-          // Update all stages' statuses
-          const updatedStages = progressStage.stages.map((stage, index) => ({
-            ...stage,
-            status:
-              index < newStageIndex
-                ? 'completed'
-                : index === newStageIndex
-                  ? 'in_progress'
-                  : 'pending',
-            duration:
-              index <= currentStageIndex
-                ? (new Date().getTime() - new Date(stage.timestamp).getTime()) /
-                  1000
-                : 0,
-            timestamp: index === newStageIndex ? new Date() : stage.timestamp
-          }));
-
-          await this.driverProgressStageModel.findByIdAndUpdate(
-            progressStage._id,
-            {
-              current_state: newState,
-              previous_state: progressStage.current_state,
-              stages: updatedStages
-            }
-          );
-        }
       }
 
       const updatedOrder = await this.orderModel
@@ -319,6 +161,7 @@ export class OrdersService {
     const restaurant = await this.restaurantModel
       .findById(restaurant_id)
       .exec();
+    console.log('restaurant', restaurant);
     if (!restaurant) {
       return createResponse('NotFound', null, 'Restaurant not found');
     }

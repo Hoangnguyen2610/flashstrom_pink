@@ -11,11 +11,11 @@ import { Type } from 'class-transformer';
 class LocationDto {
   @IsNumber()
   @IsOptional()
-  latitude: number;
+  lat: number;
 
   @IsNumber()
   @IsOptional()
-  longitude: number;
+  lng: number;
 }
 
 class DetailsDto {
@@ -74,8 +74,8 @@ export class UpdateDriverProgressStageDto {
     duration: number;
     details?: {
       location?: {
-        latitude: number;
-        longitude: number;
+        lat: number;
+        lng: number;
       };
       estimated_time?: number;
       actual_time?: number;

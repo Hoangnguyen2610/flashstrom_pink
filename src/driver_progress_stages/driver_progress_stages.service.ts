@@ -92,119 +92,46 @@ export class DriverProgressStagesService {
         );
       }
 
-      console.log('🔍 Found existing stage:', stage);
-
-      // Handle adding new order_ids and stages
+      // Handle adding new order_ids
       if (updateData.order_ids) {
         stage.order_ids = updateData.order_ids;
       }
 
+      // Handle stages updates
       if (updateData.stages) {
-        // Push new stages instead of replacing
-        stage.stages.push(...updateData.stages);
-      }
-
-      // Ensure current_state is preserved if not explicitly changing it
-      if (!updateData.current_state) {
-        updateData.current_state = stage.current_state;
-      }
-
-      // Rest of the existing logic for state transitions
-      if (stage.current_state !== updateData.current_state) {
-        // Mark the previous state as completed in state_history
-        const lastHistoryEntry = stage.stages[stage.stages.length - 1];
-        if (lastHistoryEntry) {
-          lastHistoryEntry.status = 'completed';
-          lastHistoryEntry.duration =
-            Date.now() - lastHistoryEntry.timestamp.getTime();
-        }
-
-        stage.previous_state = stage.current_state;
-        stage.current_state = updateData.current_state;
-
-        // Add new state with in_progress status
-        const newHistoryEntry = {
-          state: updateData.current_state,
-          status: 'in_progress' as const,
-          timestamp: new Date(),
-          duration: 0,
-          details: updateData.details || {}
-        };
-        stage.stages.push(newHistoryEntry);
-
-        // Add corresponding event based on state transition
-        if (updateData.current_state === 'restaurant_pickup') {
-          stage.events.push({
-            event_type: 'pickup_complete',
-            event_timestamp: new Date(),
-            event_details: {
-              location: updateData.details?.location,
-              notes: updateData.details?.notes
-            }
-          });
-        } else if (updateData.current_state === 'delivery_complete') {
-          // Mark the current state as completed since this is the final state
-          const currentHistoryEntry = stage.stages[stage.stages.length - 1];
-          if (currentHistoryEntry) {
-            currentHistoryEntry.status = 'completed';
-            currentHistoryEntry.duration =
-              Date.now() - currentHistoryEntry.timestamp.getTime();
+        // Keep existing stages and append new ones
+        const existingStages = stage.stages || [];
+        const newStages = updateData.stages.map(newStage => ({
+          ...newStage,
+          details: {
+            ...newStage.details,
+            // Safely handle potentially undefined details/location
+            location: newStage.details?.location
+              ? {
+                  lat: newStage.details.location.lat || null,
+                  lng: newStage.details.location.lng || null
+                }
+              : null,
+            estimated_time: newStage.details?.estimated_time || null,
+            actual_time: newStage.details?.actual_time || null,
+            notes: newStage.details?.notes || null,
+            tip: newStage.details?.tip || null,
+            weather: newStage.details?.weather || null
           }
+        }));
 
-          stage.events.push({
-            event_type: 'delivery_complete',
-            event_timestamp: new Date(),
-            event_details: {
-              location: updateData.details?.location,
-              notes: updateData.details?.notes
-            }
-          });
+        // Combine existing and new stages
+        stage.stages = [...existingStages, ...newStages];
 
-          // Update all associated orders' status to DELIVERED
-          await Promise.all([
-            ...stage.order_ids.map(orderId =>
-              this.orderModel.findByIdAndUpdate(orderId, {
-                status: 'DELIVERED',
-                tracking_info: 'DELIVERED',
-                updated_at: Math.floor(Date.now() / 1000)
-              })
-            ),
-            // Remove the completed order from driver's current_order_id array
-            (async () => {
-              const updatedDriver = await this.driverModel.findByIdAndUpdate(
-                stage.driver_id,
-                {
-                  $pullAll: { current_order_id: stage.order_ids }
-                },
-                { new: true }
-              );
-              return updatedDriver;
-            })()
-          ]);
-        } else if (updateData.current_state === 'en_route_to_customer') {
-          // Update all associated orders' tracking info to OUT_FOR_DELIVERY
-          await Promise.all(
-            stage.order_ids.map(orderId =>
-              this.orderModel.findByIdAndUpdate(orderId, {
-                tracking_info: 'OUT_FOR_DELIVERY',
-                updated_at: Math.floor(Date.now() / 1000)
-              })
-            )
-          );
-        }
+        console.log('Updated stages count:', stage.stages.length);
       }
 
-      // Update other fields while preserving required fields
-      const updatedData = {
-        ...stage.toObject(),
-        ...updateData,
-        current_state: updateData.current_state || stage.current_state,
-        stages: stage.stages // Ensure we keep the updated stages array
-      };
+      // Update current state if provided
+      if (updateData.current_state) {
+        stage.current_state = updateData.current_state;
+      }
 
-      Object.assign(stage, updatedData);
       const updatedStage = await stage.save();
-
       console.log('✅ Successfully updated stage:', updatedStage);
 
       return createResponse(

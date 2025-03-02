@@ -19,8 +19,13 @@ import { MenuItemsModule } from './menu_items/menu_items.module';
 import { MenuItemVariantsModule } from './menu_item_variants/menu_item_variants.module';
 import { CartItemsModule } from './cart_items/cart_items.module';
 import { OrdersModule } from './orders/orders.module';
+import { RatingsReviewsModule } from './ratings_reviews/ratings_reviews.module';
+import { AdminModule } from './admin/admin.module';
+import { CustomerCaresModule } from './customer_cares/customer_cares.module';
+import { FinanceAdminModule } from './admin/finance_admin/finance_admin.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DriverProgressStagesModule } from './driver_progress_stages/driver_progress_stages.module';
+import { CompanionAdminModule } from './admin/companion_admin/companion_admin.module';
 
 @Module({
   imports: [
@@ -41,8 +46,13 @@ import { DriverProgressStagesModule } from './driver_progress_stages/driver_prog
     MenuItemsModule,
     MenuItemVariantsModule,
     CartItemsModule,
-    OrdersModule, // Import the mailer module here
-    DriverProgressStagesModule
+    OrdersModule,
+    RatingsReviewsModule, // Import the mailer module here
+    AdminModule,
+    CustomerCaresModule,
+    FinanceAdminModule,
+    DriverProgressStagesModule,
+    CompanionAdminModule
   ],
   controllers: [AppController],
   providers: [AppService, EmailService]

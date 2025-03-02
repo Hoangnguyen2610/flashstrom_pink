@@ -40,8 +40,9 @@ export class CustomersService {
   ): Promise<ApiResponse<Customer>> {
     try {
       const existingUser = await this.userModel
-        .findOne({ user_id: createCustomerDto.user_id })
+        .findById(createCustomerDto.user_id)
         .exec();
+      console.log('existingUser', existingUser);
       if (!existingUser) {
         return createResponse('NotFound', null, 'User not found');
       }

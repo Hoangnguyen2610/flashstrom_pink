@@ -52,4 +52,11 @@ export class UpdatePromotionDto extends PartialType(CreatePromotionDto) {
   @IsOptional()
   @IsString({ each: true }) // Ensures that each item in the array is a string
   food_categories: string[];
+
+  @IsOptional()
+  bogo_details?: {
+    buy_quantity: number;
+    get_quantity: number;
+    max_redemptions?: number;
+  };
 }

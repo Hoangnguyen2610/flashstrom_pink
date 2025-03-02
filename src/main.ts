@@ -13,10 +13,22 @@ async function bootstrap() {
   app.useLogger(['debug', 'error', 'log', 'verbose', 'warn']);
 
   app.enableCors({
-    origin: ['*', 'localhost:1310'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders:
+      'Content-Type, Accept, Authorization, ngrok-skip-browser-warning, X-Content-Type-Options',
+    credentials: true,
+  });
+
+  app.use((req, res, next) => {
+    // Disable Ngrok interception
+    res.setHeader('ngrok-skip-browser-warning', 'true');
+    // Force response to be treated as JSON
+    res.setHeader('Content-Type', 'application/json');
+    // Prevent content type sniffing
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    next();
+
   });
 
   // Use the ValidationPipe globally with the whitelist option

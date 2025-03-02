@@ -1,11 +1,4 @@
-import {
-  IsString,
-  IsArray,
-  IsNumber,
-  IsObject,
-  IsBoolean,
-  IsOptional
-} from 'class-validator';
+import { IsString, IsArray, IsObject, IsOptional } from 'class-validator';
 
 export class CreateRestaurantDto {
   @IsString()

@@ -11,7 +11,17 @@ export enum PromotionStatus {
 // Enum for discount type
 export enum DiscountType {
   PERCENTAGE = 'PERCENTAGE',
-  FIXED = 'FIXED'
+
+  FIXED = 'FIXED',
+  BOGO = 'BOGO',
+}
+
+// Add BOGO details interface
+interface BogoDetails {
+  buy_quantity: number;
+  get_quantity: number;
+  max_redemptions?: number;
+
 }
 
 export class CreatePromotionDto {
@@ -54,4 +64,7 @@ export class CreatePromotionDto {
   @IsOptional()
   @IsString({ each: true }) // Ensures that each item in the array is a string
   food_categories: string[];
+
+  @IsOptional()
+  bogo_details?: BogoDetails;
 }

@@ -37,8 +37,8 @@ export class CreateDriverProgressStageDto {
     duration: number;
     details?: {
       location?: {
-        latitude: number;
-        longitude: number;
+        lat: number;
+        lng: number;
       };
       estimated_time?: number;
       actual_time?: number;

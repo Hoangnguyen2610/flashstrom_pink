@@ -101,6 +101,8 @@ export class RestaurantsGateway
   async handleNewOrder(@MessageBody() order: any) {
     const restaurantId = await order.restaurant_id;
 
+
+
     // Add this log to verify the room name matches
     console.log('Emitting to room:', `restaurant_${restaurantId}`);
 

@@ -12,29 +12,19 @@ export const PromotionSchema = new Schema({
   status: {
     type: String,
     enum: ['ACTIVE', 'EXPIRED', 'PENDING', 'CANCELLED'],
-    required: true
+    required: true,
   }, // Status of the promotion
   discount_type: {
     type: String,
-
-    enum: ['PERCENTAGE', 'FIXED', 'BOGO'],
+    enum: ['PERCENTAGE', 'FIXED'],
     required: true,
-  }, // Type of discount (percentage, fixed, or buy-one-get-one)
-  discount_value: { type: Number, required: true }, // Discount value (percentage, fixed amount, or number of free items for BOGO)
-  bogo_details: {
-    type: {
-      buy_quantity: { type: Number, default: 1 }, // Number of items to buy
-      get_quantity: { type: Number, default: 1 }, // Number of items to get free
-      max_redemptions: { type: Number }, // Maximum number of times BOGO can be applied per order
-    },
-    required: false,
-  },
-
+  }, // Type of discount (percentage or fixed)
+  discount_value: { type: Number, required: true }, // Discount value (either percentage or fixed amount)
   food_categories: { type: [String], ref: 'FoodCategory', required: true }, // Food category IDs that are affected by this promotion
   minimum_order_value: { type: Number }, // Minimum order value to apply the promotion
   promotion_cost_price: { type: Number, required: true },
   created_at: { type: Number, required: false }, // Unix timestamp of creation
-  updated_at: { type: Number, required: false } // Unix timestamp of last update
+  updated_at: { type: Number, required: false }, // Unix timestamp of last update
 });
 
 // Pre-save hook to generate a custom ID with 'FF_PROMO_' prefix and a random UUID
@@ -58,13 +48,8 @@ export interface Promotion extends Document {
   start_date: number; // Unix timestamp for the start date
   end_date: number; // Unix timestamp for the end date
   status: 'ACTIVE' | 'EXPIRED' | 'PENDING' | 'CANCELLED'; // Status of the promotion
-  discount_type: 'PERCENTAGE' | 'FIXED' | 'BOGO'; // Type of discount (percentage, fixed, or buy-one-get-one)
-  discount_value: number; // Discount value (percentage, fixed amount, or number of free items for BOGO)
-  bogo_details?: {
-    buy_quantity: number;
-    get_quantity: number;
-    max_redemptions?: number;
-  };
+  discount_type: 'PERCENTAGE' | 'FIXED'; // Type of discount (percentage or fixed)
+  discount_value: number; // Discount value (percentage or fixed amount)
   food_categories: string[]; // Array of Food Category IDs affected by the promotion
   minimum_order_value: number; // Minimum order value required to apply the promotion
   promotion_cost_price: number; // Price of the promotion (if applicable)
