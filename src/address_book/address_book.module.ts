@@ -10,9 +10,17 @@ import { FoodCategory } from 'src/food_categories/entities/food_category.entity'
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { User } from 'src/users/entities/user.entity';
+import { UserRepository } from 'src/users/users.repository';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AddressBook, Customer, FoodCategory, Restaurant])
+    TypeOrmModule.forFeature([
+      AddressBook,
+      Customer,
+      FoodCategory,
+      Restaurant,
+      User
+    ])
   ],
   controllers: [AddressBookController],
   providers: [
@@ -20,7 +28,8 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
     AddressBookRepository,
     CustomersRepository,
     FoodCategoriesRepository,
-    RestaurantsRepository
+    RestaurantsRepository,
+    UserRepository
   ],
   exports: [AddressBookService]
 })

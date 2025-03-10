@@ -6,10 +6,13 @@ import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
 import { v4 as uuidv4 } from 'uuid';
 import { PromotionsRepository } from './promotions.repository';
-
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 @Injectable()
 export class PromotionsService {
-  constructor(private readonly promotionsRepository: PromotionsRepository) {}
+  constructor(
+    private readonly promotionsRepository: PromotionsRepository,
+    private readonly foodCategoriesRepository: FoodCategoriesRepository
+  ) {}
 
   async create(
     createPromotionDto: CreatePromotionDto
@@ -25,10 +28,29 @@ export class PromotionsService {
           'Promotion with this name already exists'
         );
       }
+      console.log('createPromotionDto.food_categories', createPromotionDto);
+      const existingFoodCategories = await Promise.all(
+        createPromotionDto.food_categories.map(async foodCategory => {
+          return await this.foodCategoriesRepository.findById(foodCategory.id);
+        })
+      );
+
+      const missingCategories = existingFoodCategories.some(
+        category => !category
+      );
+
+      if (missingCategories) {
+        return createResponse(
+          'NotFound',
+          null,
+          'One or more food categories not found'
+        );
+      }
 
       const savedPromotion = await this.promotionsRepository.create({
         ...createPromotionDto,
-        id: `FF_PROMO_${uuidv4()}`
+        id: `FF_PROMO_${uuidv4()}`,
+        food_categories: existingFoodCategories
       });
 
       return createResponse(

@@ -1,28 +1,41 @@
 import { Injectable } from '@nestjs/common';
-import { Repository, DeepPartial, In } from 'typeorm';
+import { Repository, DeepPartial } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Restaurant } from './entities/restaurant.entity';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { FoodCategory } from '../food_categories/entities/food_category.entity';
+import { createResponse } from 'src/utils/createResponse';
+import { UserRepository } from 'src/users/users.repository';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
 
 @Injectable()
 export class RestaurantsRepository {
   constructor(
     @InjectRepository(Restaurant)
-    private repository: Repository<Restaurant>,
+    public repository: Repository<Restaurant>,
     @InjectRepository(FoodCategory)
-    private foodCategoryRepository: Repository<FoodCategory>
+    private foodCategoryRepository: Repository<FoodCategory>,
+    private userRepository: UserRepository,
+    private addressRepository: AddressBookRepository
   ) {}
 
-  async create(createDto: CreateRestaurantDto): Promise<Restaurant> {
-    // Handle food categories if provided
-    let specialize_in: FoodCategory[] = [];
-    if (createDto.food_category_ids?.length) {
-      specialize_in = await this.foodCategoryRepository.findBy({
-        id: In(createDto.food_category_ids)
-      });
+  async create(
+    createDto: CreateRestaurantDto & { specialize_in?: FoodCategory[] }
+  ): Promise<any> {
+    const owner = await this.userRepository.findById(createDto.owner_id);
+    if (!owner) {
+      return createResponse('NotFound', null, 'Owner not found');
     }
+
+    // Check if address exists
+    const address = await this.addressRepository.findById(createDto.address_id);
+    if (!address) {
+      return createResponse('NotFound', null, 'Address not found');
+    }
+
+    // Sử dụng specialize_in từ DTO (đã được RestaurantsService xử lý)
+    const specialize_in = createDto.specialize_in || [];
 
     // Convert DTO to DeepPartial<Restaurant>
     const restaurantData: DeepPartial<Restaurant> = {
@@ -34,18 +47,22 @@ export class RestaurantsRepository {
       contact_email: createDto.contact_email,
       contact_phone: createDto.contact_phone,
       avatar: createDto.avatar,
-      images_gallery: createDto.images_gallery,
+      images_gallery: createDto.images_gallery || [],
       status: createDto.status,
-      promotions: createDto.promotions,
+      promotions: createDto.promotions || [],
       ratings: createDto.ratings,
       opening_hours: createDto.opening_hours,
-      specialize_in,
+      specialize_in, // Sử dụng specialize_in từ DTO
       created_at: Math.floor(Date.now() / 1000),
       updated_at: Math.floor(Date.now() / 1000)
     };
 
     const restaurant = this.repository.create(restaurantData);
-    return await this.repository.save(restaurant);
+    const savedRestaurant = await this.repository.save(restaurant, {
+      reload: true
+    });
+
+    return savedRestaurant;
   }
 
   async findAll(): Promise<Restaurant[]> {
@@ -70,32 +87,38 @@ export class RestaurantsRepository {
 
   async update(
     id: string,
-    updateDto: UpdateRestaurantDto
+    updateDto: UpdateRestaurantDto & { specialize_in?: FoodCategory[] }
   ): Promise<Restaurant> {
-    // Handle food categories if provided
-    let specialize_in: FoodCategory[] | undefined;
-    if (updateDto.food_category_ids?.length) {
-      specialize_in = await this.foodCategoryRepository.findBy({
-        id: In(updateDto.food_category_ids)
-      });
-    }
+    const specialize_in = updateDto.specialize_in; // Lấy specialize_in từ DTO
 
-    // Create a new object without food_category_ids
-    const { ...updateDataWithoutFoodCategories } = updateDto;
-
-    // Convert DTO to DeepPartial<Restaurant>
     const updateData: DeepPartial<Restaurant> = {
-      ...updateDataWithoutFoodCategories,
-      specialize_in,
+      ...updateDto,
       updated_at: Math.floor(Date.now() / 1000)
     };
 
     // Remove relationship fields that should not be directly updated
     delete updateData.address;
     delete updateData.owner;
+    delete updateData.specialize_in; // Xóa specialize_in khỏi updateData vì sẽ xử lý riêng
+
+    // Đảm bảo images_gallery và promotions không bị null
+    if (updateData.images_gallery === undefined) {
+      delete updateData.images_gallery;
+    }
+    if (updateData.promotions === undefined) {
+      delete updateData.promotions;
+    }
 
     await this.repository.update(id, updateData);
-    return await this.findById(id);
+    const updatedRestaurant = await this.findById(id);
+
+    // Cập nhật quan hệ ManyToMany nếu có
+    if (specialize_in && specialize_in.length > 0) {
+      updatedRestaurant.specialize_in = specialize_in;
+      await this.repository.save(updatedRestaurant);
+    }
+
+    return updatedRestaurant;
   }
 
   async delete(id: string): Promise<boolean> {

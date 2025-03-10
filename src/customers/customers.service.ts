@@ -4,13 +4,16 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './entities/customer.entity';
 import { createResponse, ApiResponse } from 'src/utils/createResponse';
 import { UserRepository } from '../users/users.repository';
-import { AddressBookRepository } from 'src/address_book/address_book.repository';
-import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+// import { AddressBookRepository } from 'src/address_book/address_book.repository';
+// import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from './customers.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
-
+// import { OrdersRepository } from 'src/orders/orders.repository';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { DataSource } from 'typeorm';
+import { Order } from 'src/orders/entities/order.entity';
 export interface AddressPopulate {
   id?: string;
   street?: string;
@@ -27,8 +30,7 @@ export class CustomersService {
   constructor(
     private readonly restaurantRepository: RestaurantsRepository,
     private readonly userRepository: UserRepository,
-    private readonly addressRepository: AddressBookRepository,
-    private readonly foodCategoriesRepository: FoodCategoriesRepository,
+    private readonly dataSource: DataSource,
     private readonly customerRepository: CustomersRepository
   ) {}
 
@@ -127,6 +129,13 @@ export class CustomersService {
     try {
       const updatedCustomer = await this.customerRepository.update(
         id,
+        updateCustomerDto
+      );
+      console.log(
+        'check toggle favourite restaurant',
+        id,
+        updatedCustomer,
+        'customerdto',
         updateCustomerDto
       );
       if (!updatedCustomer) {
@@ -279,10 +288,12 @@ export class CustomersService {
             preferred_category.includes(category as unknown as FoodCategory)
           );
 
-          // Find how many times the customer has visited this restaurant
-          const visitHistory = restaurant_history.find(
-            history => history.restaurant_id === restaurant.id
-          );
+          // Find how many times the customer has visited this restaurant, default to 0 if restaurant_history is null
+          const visitHistory = restaurant_history
+            ? restaurant_history.find(
+                history => history.restaurant_id === restaurant.id
+              )
+            : null;
           const visitCount = visitHistory ? visitHistory.count : 0;
 
           // Calculate distance between customer and restaurant (in km)
@@ -322,57 +333,148 @@ export class CustomersService {
       );
     }
   }
+  async getAllOrders(customerId: string): Promise<any> {
+    try {
+      // Fetch customer data để kiểm tra tồn tại
+      const customer = await this.customerRepository.findById(customerId);
 
-  // // Private helper methods
-  // private async validateAndUpdateAddress(
-  //   customer: Customer,
-  //   addressId: string
-  // ): Promise<boolean> {
-  //   const addressExists = await this.addressRepository.findById(addressId);
-  //   if (!addressExists) return false;
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
 
-  //   const addressIndex = customer.address.indexOf(addressId);
-  //   if (addressIndex !== -1) {
-  //     customer.address.splice(addressIndex, 1);
-  //   } else {
-  //     customer.address.push(addressId);
-  //   }
-  //   return true;
-  // }
+      // Fetch orders của customer với các quan hệ cần thiết bằng DataSource
+      const orders = await this.dataSource.getRepository(Order).find({
+        where: { customer_id: customerId }, // Lọc theo customerId
+        relations: [
+          'restaurant', // Populate restaurant
+          'customer', // Populate customer (nếu cần)
+          'driver', // Populate driver (tuỳ chọn)
+          'customerAddress', // Populate customer_location từ AddressBook
+          'restaurantAddress' // Populate restaurant_location từ AddressBook
+        ],
+        select: {
+          id: true,
+          customer_id: true,
+          restaurant_id: true,
+          driver_id: true,
+          status: true,
+          total_amount: true,
+          payment_status: true,
+          payment_method: true,
+          customer_location: true,
+          restaurant_location: true,
+          order_items: true, // Lấy order_items
+          customer_note: true,
+          restaurant_note: true,
+          distance: true,
+          delivery_fee: true,
+          updated_at: true,
+          order_time: true,
+          delivery_time: true,
+          tracking_info: true,
+          restaurant: {
+            id: true,
+            restaurant_name: true,
+            address_id: true,
+            avatar: {
+              url: true,
+              key: true
+            }
+          }
+        }
+      });
 
-  // private async validateAndUpdateFavoriteRestaurants(
-  //   customer: Customer,
-  //   restaurantId: string
-  // ): Promise<boolean> {
-  //   const restaurantExists =
-  //     await this.restaurantRepository.findById(restaurantId);
-  //   if (!restaurantExists) return false;
+      if (!orders || orders.length === 0) {
+        return createResponse('OK', [], 'No orders found for this customer');
+      }
 
-  //   const restaurantIndex = customer.favorite_restaurants.indexOf(restaurantId);
-  //   if (restaurantIndex !== -1) {
-  //     customer.favorite_restaurants.splice(restaurantIndex, 1);
-  //   } else {
-  //     customer.favorite_restaurants.push(restaurantId);
-  //   }
-  //   return true;
-  // }
+      // Lấy specialize_in từ restaurant_specializations và join với food_categories
+      const restaurantIds = orders.map(order => order.restaurant_id);
+      const specializations = await this.dataSource
+        .createQueryBuilder()
+        .select('rs.restaurant_id', 'restaurant_id')
+        .addSelect('array_agg(fc.name)', 'specializations') // Gom nhóm các danh mục món ăn
+        .from('restaurant_specializations', 'rs')
+        .leftJoin('food_categories', 'fc', 'fc.id = rs.food_category_id') // Join với food_categories
+        .where('rs.restaurant_id IN (:...restaurantIds)', { restaurantIds })
+        .groupBy('rs.restaurant_id')
+        .getRawMany();
 
-  // private async validateAndUpdatePreferredCategory(
-  //   customer: Customer,
-  //   categoryId: string
-  // ): Promise<boolean> {
-  //   const categoryExists =
-  //     await this.foodCategoriesRepository.findById(categoryId);
-  //   if (!categoryExists) return false;
+      // Map specializations vào orders
+      const specializationMap = new Map(
+        specializations.map(spec => [spec.restaurant_id, spec.specializations])
+      );
 
-  //   const categoryIndex = customer.preferred_category.indexOf(categoryId);
-  //   if (categoryIndex !== -1) {
-  //     customer.preferred_category.splice(categoryIndex, 1);
-  //   } else {
-  //     customer.preferred_category.push(categoryId);
-  //   }
-  //   return true;
-  // }
+      // Populate thông tin MenuItem và specializations cho từng order
+      const populatedOrders = await Promise.all(
+        orders.map(async order => {
+          const populatedOrderItems = await Promise.all(
+            order.order_items.map(async item => {
+              // Tìm MenuItem theo item_id
+              const menuItem = await this.dataSource
+                .getRepository(MenuItem)
+                .findOne({
+                  where: { id: item.item_id },
+                  relations: ['restaurant', 'variants'], // Populate restaurant và variants
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    avatar: {
+                      url: true,
+                      key: true
+                    },
+                    restaurant: {
+                      id: true,
+                      restaurant_name: true,
+                      address_id: true,
+                      avatar: {
+                        url: true,
+                        key: true
+                      }
+                    }
+                  }
+                });
+
+              return {
+                ...item,
+                menu_item: menuItem || null // Nếu không tìm thấy MenuItem, trả về null
+              };
+            })
+          );
+
+          // Gắn specializations vào restaurant của order
+          const restaurantSpecializations =
+            specializationMap.get(order.restaurant_id) || [];
+
+          return {
+            ...order,
+            order_items: populatedOrderItems, // Thay order_items bằng dữ liệu đã populate
+            customer_address: order.customerAddress, // Thêm thông tin từ AddressBook
+            restaurant_address: order.restaurantAddress, // Thêm thông tin từ AddressBook
+            restaurant: {
+              ...order.restaurant,
+              specialize_in: restaurantSpecializations // Thêm specialize_in vào restaurant
+            }
+          };
+        })
+      );
+
+      // Trả về danh sách orders đã được populate
+      return createResponse(
+        'OK',
+        populatedOrders,
+        'Fetched orders successfully'
+      );
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching orders'
+      );
+    }
+  }
 
   async findOne(conditions: Partial<Customer>): Promise<ApiResponse<Customer>> {
     try {

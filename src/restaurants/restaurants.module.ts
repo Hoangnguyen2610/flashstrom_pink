@@ -21,10 +21,18 @@ import { FoodCategoriesRepository } from 'src/food_categories/food_categories.re
 import { CartItemsModule } from 'src/cart_items/cart_items.module';
 import { Order } from 'src/orders/entities/order.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
+import { UserRepository } from 'src/users/users.repository';
+import { User } from 'src/users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Restaurant, AddressBook, FoodCategory, Order]),
+    TypeOrmModule.forFeature([
+      Restaurant,
+      AddressBook,
+      FoodCategory,
+      Order,
+      User
+    ]),
     UsersModule,
     AddressBookModule,
     forwardRef(() => DriversModule),
@@ -43,6 +51,8 @@ import { OrdersRepository } from 'src/orders/orders.repository';
     RestaurantsGateway,
     AddressBookRepository,
     FoodCategoriesRepository,
+    UserRepository,
+    AddressBookRepository,
     OrdersRepository
   ],
   exports: [

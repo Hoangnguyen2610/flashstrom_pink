@@ -22,6 +22,8 @@ import { Customer } from './entities/customer.entity';
 import { CustomersRepository } from './customers.repository';
 import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
+import { OrdersRepository } from 'src/orders/orders.repository';
+import { Order } from 'src/orders/entities/order.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -30,7 +32,8 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
       FoodCategory,
       Restaurant,
       Customer,
-      CartItem
+      CartItem,
+      Order
     ]),
     forwardRef(() => CartItemsModule),
     UsersModule,
@@ -47,7 +50,8 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
     FoodCategoriesRepository,
     RestaurantsRepository,
     CustomersRepository,
-    CartItemsRepository
+    CartItemsRepository,
+    OrdersRepository
   ],
   exports: [CustomersService, CustomersGateway, CustomersRepository]
 })

@@ -1,19 +1,13 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn
-} from 'typeorm';
-import { Enum_UserType } from 'src/types/Payload';
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import { Message } from './message.entity';
 
 export enum RoomType {
-  ORDER = 'ORDER',
   SUPPORT = 'SUPPORT',
-  GENERAL = 'GENERAL'
+  ORDER = 'ORDER',
+  ADMIN = 'ADMIN' // Thêm nếu cần
 }
 
-@Entity()
+@Entity('chatrooms')
 export class ChatRoom {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -21,22 +15,22 @@ export class ChatRoom {
   @Column({
     type: 'enum',
     enum: RoomType,
-    default: RoomType.GENERAL
+    default: RoomType.SUPPORT
   })
   type: RoomType;
 
-  @Column({ nullable: true })
-  relatedId?: string;
+  @Column('jsonb') // Lưu participants dưới dạng JSON
+  participants: { userId: string; userType: string }[];
 
-  @Column('jsonb')
-  participants: {
-    userId: string;
-    userType: Enum_UserType;
-  }[];
+  @Column({ nullable: true }) // Nếu liên kết với order
+  relatedId: string;
 
-  @CreateDateColumn()
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   lastActivity: Date;
+
+  @OneToMany(() => Message, message => message.chatRoom)
+  messages: Message[];
 }

@@ -28,6 +28,11 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  distance?: number; // Total amount for the order (if updated)
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   total_amount?: number; // Total amount for the order (if updated)
 
   @IsNumber()

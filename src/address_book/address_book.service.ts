@@ -18,8 +18,10 @@ export class AddressBookService {
     customerId?: string
   ): Promise<ApiResponse<AddressBook>> {
     try {
+      console.log('check create address book service', createAddressBookDto);
       const newAddress =
         await this.addressBookRepository.create(createAddressBookDto);
+      console.log('check create address book service newAddress', newAddress);
 
       if (customerId) {
         const customer = await this.customerRepository.findById(customerId);

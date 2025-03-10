@@ -98,5 +98,7 @@ export class UpdateCustomerPreferredCategoryDto extends UpdateCustomerDto {
   preferred_category: string;
 }
 export class UpdateCustomerFavoriteRestaurantDto extends UpdateCustomerDto {
-  favorite_restaurants: string;
+  @IsOptional()
+  @IsString()
+  favorite_restaurant: string;
 }

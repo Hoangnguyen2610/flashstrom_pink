@@ -51,7 +51,7 @@ class OpeningHours {
   to: number;
 }
 
-class DailyHours {
+export class DailyHours {
   @ValidateNested()
   @Type(() => OpeningHours)
   mon: OpeningHours;
@@ -140,4 +140,30 @@ export class CreateRestaurantDto {
   @ValidateNested()
   @Type(() => DailyHours)
   opening_hours: DailyHours;
+}
+
+export class createRestaurantSignup extends CreateRestaurantDto {
+  @IsOptional()
+  @IsString()
+  owner_id: string;
+
+  @IsOptional()
+  @IsString()
+  first_name: string;
+
+  @IsOptional()
+  @IsString()
+  last_name: string;
+
+  @IsOptional()
+  @IsString()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  password: string;
+
+  @IsOptional()
+  @IsString()
+  phone: string;
 }

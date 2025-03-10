@@ -33,6 +33,11 @@ export class OrdersRepository {
     return result;
   }
 
+  async findOne(conditions: object): Promise<Order> {
+    // Thêm method này
+    return await this.repository.findOne({ where: conditions });
+  }
+
   async update(id: string, updateDto: UpdateOrderDto): Promise<Order> {
     await this.repository.update(id, {
       ...updateDto,

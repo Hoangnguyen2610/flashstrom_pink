@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryColumn, BeforeInsert } from 'typeorm';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BeforeInsert,
+  ManyToMany
+} from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
 @Entity('food_categories')
@@ -23,6 +30,9 @@ export class FoodCategory {
 
   @Column({ name: 'updated_at' })
   updated_at: number;
+
+  @ManyToMany(() => Promotion, promotion => promotion.food_categories)
+  promotions: Promotion[]; // Quan hệ ngược với Promotion
 
   @BeforeInsert()
   generateId() {

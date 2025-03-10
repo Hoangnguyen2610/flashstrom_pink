@@ -30,7 +30,22 @@ export class PromotionsRepository {
   }
 
   async update(id: string, updateData: UpdatePromotionDto): Promise<void> {
-    await this.promotionRepository.update(id, updateData);
+    const { food_categories, ...restData } = updateData;
+
+    // Cập nhật các field không phải quan hệ
+    await this.promotionRepository.update(id, restData);
+
+    // Nếu có food_categories, xử lý quan hệ @ManyToMany riêng
+    if (food_categories) {
+      const promotion = await this.promotionRepository.findOne({
+        where: { id },
+        relations: ['food_categories']
+      });
+      if (promotion) {
+        promotion.food_categories = food_categories;
+        await this.promotionRepository.save(promotion); // Save để cập nhật bảng join
+      }
+    }
   }
 
   async delete(id: string): Promise<{ affected?: number }> {

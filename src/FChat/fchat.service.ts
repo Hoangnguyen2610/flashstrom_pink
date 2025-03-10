@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
-import { ChatRoom } from './entities/chat-room.entity';
+import { ChatRoom, RoomType } from './entities/chat-room.entity';
 import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
@@ -28,6 +28,25 @@ export class FchatService {
     return this.roomRepository.findOne({ where: { id: roomId } });
   }
 
+  async getRoomByParticipantsAndType(
+    participantIds: string[],
+    type: RoomType
+  ): Promise<ChatRoom | null> {
+    try {
+      const room = await this.roomRepository
+        .createQueryBuilder('chatRoom')
+        .where('chatRoom.type = :type', { type })
+        .andWhere('chatRoom.participants @> :participants', {
+          participants: participantIds.map(id => ({ userId: id }))
+        })
+        .getOne();
+      return room || null;
+    } catch (error) {
+      console.error('Error finding room by participants and type:', error);
+      return null;
+    }
+  }
+
   async createMessage(messageData: Partial<Message>): Promise<Message> {
     const message = this.messageRepository.create(messageData);
     return this.messageRepository.save(message);
@@ -38,12 +57,17 @@ export class FchatService {
     const room = this.roomRepository.create(roomData);
     return this.roomRepository.save(room);
   }
-
   async getRoomMessages(roomId: string): Promise<Message[]> {
-    return this.messageRepository.find({
-      where: { roomId },
-      order: { timestamp: 'ASC' }
-    });
+    try {
+      const messages = await this.messageRepository.find({
+        where: { roomId },
+        order: { timestamp: 'ASC' }
+      });
+      return messages;
+    } catch (error) {
+      console.error(`Error fetching messages for room ${roomId}:`, error);
+      return [];
+    }
   }
 
   async canUserJoinRoom(userId: string, roomId: string): Promise<boolean> {

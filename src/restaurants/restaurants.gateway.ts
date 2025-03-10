@@ -34,7 +34,7 @@ interface RestaurantAcceptData {
 @WebSocketGateway({
   namespace: 'restaurant',
   cors: {
-    origin: ['*', 'localhost:1310'],
+    origin: ['*', process.env.FULL_BACKEND_URL],
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -45,6 +45,7 @@ export class RestaurantsGateway
 {
   @WebSocketServer()
   server: Server;
+  private notificationLock = new Map<string, boolean>();
 
   constructor(
     @Inject(forwardRef(() => RestaurantsService))
@@ -73,8 +74,7 @@ export class RestaurantsGateway
 
     try {
       client.join(`restaurant_${restaurantId}`);
-      console.log('✅ Successfully joined room');
-      console.log(`restaurant_${restaurantId}`);
+      console.log(`restaurant_${restaurantId} joined`);
 
       return {
         event: 'joinRoomRestaurant',
@@ -181,6 +181,8 @@ export class RestaurantsGateway
           distance: distance
         };
 
+        await this.notifyPartiesOnce(orderAssignment);
+
         // Emit only once
         await this.eventEmitter.emit('order.assignedToDriver', orderAssignment);
 
@@ -239,6 +241,60 @@ export class RestaurantsGateway
       console.log('✅ Order status update emitted successfully');
     } catch (error) {
       console.error('❌ Error emitting order status update:', error);
+    }
+  }
+
+  @OnEvent('orderTrackingUpdate')
+  async handleOrderTrackingUpdate(@MessageBody() order: any) {
+    // Return the response that will be visible in Postman
+    return {
+      event: 'orderTrackingUpdate',
+      data: order,
+      message: `orderTrackingUpdate: ${order}`
+    };
+  }
+  @OnEvent('listenUpdateOrderTracking')
+  async handleListenUpdateOrderTracking(@MessageBody() order: any) {
+    await this.server
+      .to(`restaurant_${order.restaurant_id}`)
+      .emit('orderTrackingUpdate', {
+        event: 'orderTrackingUpdate',
+        data: order,
+        message: 'Order received successfully'
+      });
+    // Return the response that will be visible in Postman
+    return {
+      event: 'listenUpdateOrderTracking',
+      data: order,
+      message: `listenUpdateOrderTracking ${order}`
+    };
+  }
+
+  private async notifyPartiesOnce(order: any) {
+    const notifyKey = `notify_${order.id}`;
+
+    if (this.notificationLock.get(notifyKey)) {
+      return;
+    }
+
+    try {
+      this.notificationLock.set(notifyKey, true);
+      const trackingUpdate = {
+        orderId: order.id,
+        status: order.status,
+        tracking_info: order.tracking_info,
+        updated_at: order.updated_at,
+        customer_id: order.customer_id,
+        driver_id: order.driver_id,
+        restaurant_id: order.restaurant_id
+      };
+
+      this.eventEmitter.emit('restaurantPreparingOrder', trackingUpdate);
+      console.log(
+        `Emitted restaurantPreparingOrder via EventEmitter for order ${order.id}`
+      );
+    } finally {
+      this.notificationLock.delete(notifyKey);
     }
   }
 }

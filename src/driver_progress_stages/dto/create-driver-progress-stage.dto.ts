@@ -6,6 +6,7 @@ import {
   ValidateNested
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Order } from 'src/orders/entities/order.entity'; // Import Order entity
 
 class LocationDto {
   @IsOptional()
@@ -97,8 +98,9 @@ export class CreateDriverProgressStageDto {
   driver_id: string;
 
   @IsArray()
-  @IsString({ each: true })
-  order_ids: string[];
+  @ValidateNested({ each: true })
+  @Type(() => Order) // Chấp nhận danh sách đối tượng Order
+  orders: Order[]; // Thay order_ids bằng orders
 
   @IsEnum([
     'driver_ready',

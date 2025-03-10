@@ -5,10 +5,11 @@ import {
   IsOptional,
   IsNumber,
   IsObject,
-  IsBoolean,
+  IsBoolean
 } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateCustomerCareDto } from './create-customer_cares.dto';
+import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
 
 export class UpdateCustomerCareDto extends PartialType(CreateCustomerCareDto) {
   @IsOptional()
@@ -33,7 +34,7 @@ export class UpdateCustomerCareDto extends PartialType(CreateCustomerCareDto) {
 
   @IsOptional()
   @IsArray()
-  assigned_tickets?: string[]; // Array of assigned ticket IDs
+  assigned_tickets?: CustomerCareInquiry[]; // Array of assigned ticket IDs
 
   @IsOptional()
   @IsNumber()

@@ -1,5 +1,13 @@
-import { Entity, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToMany,
+  JoinTable
+} from 'typeorm';
 import { PromotionStatus, DiscountType } from '../dto/create-promotion.dto';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity'; // Import FoodCategory
 
 @Entity('promotions')
 export class Promotion {
@@ -43,8 +51,19 @@ export class Promotion {
   })
   status: PromotionStatus;
 
-  @Column('text', { array: true })
-  food_categories: string[];
+  @ManyToMany(() => FoodCategory, foodCategory => foodCategory.promotions) // Ref tới FoodCategory
+  @JoinTable({
+    name: 'promotion_food_categories', // Tên bảng join
+    joinColumn: {
+      name: 'promotion_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'food_category_id',
+      referencedColumnName: 'id'
+    }
+  })
+  food_categories: FoodCategory[]; // Đổi từ string[] sang FoodCategory[]
 
   @Column({ type: 'jsonb', nullable: true })
   bogo_details: {

@@ -1,13 +1,25 @@
-import { Entity, Column, PrimaryColumn, BeforeInsert } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BeforeInsert,
+  ManyToOne,
+  JoinColumn
+} from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import { User } from 'src/users/entities/user.entity'; // Import User
 
 @Entity('fwallets')
 export class FWallet {
-  @PrimaryColumn()
+  @PrimaryColumn({ type: 'varchar' }) // Thêm type cho chắc
   id: string;
 
   @Column({ nullable: true })
   user_id: string;
+
+  @ManyToOne(() => User, user => user.fwallets) // Quan hệ với User
+  @JoinColumn({ name: 'user_id' }) // Trỏ tới cột user_id
+  user: User;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   balance: number;

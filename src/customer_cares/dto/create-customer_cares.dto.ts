@@ -7,10 +7,12 @@ import {
   IsObject,
   IsNumber
 } from 'class-validator';
+import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
+import { User } from 'src/users/entities/user.entity';
 
 export class CreateCustomerCareDto {
   @IsString()
-  readonly user_id: string; // Reference to the User's ID
+  readonly user_id: User; // Reference to the User's ID
 
   @IsArray()
   @IsOptional()
@@ -38,7 +40,7 @@ export class CreateCustomerCareDto {
 
   @IsArray()
   @IsOptional()
-  readonly assigned_tickets?: string[]; // Array of ticket IDs
+  readonly assigned_tickets?: CustomerCareInquiry[]; // Array of ticket IDs
 
   @IsNumber()
   @IsOptional()

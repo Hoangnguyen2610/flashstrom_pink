@@ -4,6 +4,7 @@ import { EmailService } from 'src/mailer/email.service';
 import { UsersService } from 'src/users/users.service';
 import { createResponse } from 'src/utils/createResponse';
 import { Enum_UserType } from 'src/types/Payload';
+import { createRestaurantSignup } from 'src/restaurants/dto/create-restaurant.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -95,14 +96,13 @@ export class AuthController {
   @Post('register-restaurant')
   async registerRestaurant(
     @Body()
-    userData: {
-      phone: string;
-      email: string;
-      password: string;
-      first_name: string;
-      last_name: string;
-    }
+    userData: createRestaurantSignup
   ) {
+    const fullUserData = {
+      ...userData,
+      email: userData.contact_email[0].email,
+      phone: userData.contact_phone[0].number
+    };
     // Step 1: Register the customer with the provided data
     const registrationResponse = await this.authService.register(
       userData,
@@ -112,7 +112,7 @@ export class AuthController {
     // If registration is successful
     if (registrationResponse?.data?.data) {
       const code = await this.emailService.sendVerificationEmail(
-        userData.email
+        fullUserData.email
       ); // Send email to the user's email
       await this.usersService.update(
         registrationResponse.data.data.user_id ??
@@ -236,6 +236,9 @@ export class AuthController {
   async loginCustomerCare(
     @Body() credentials: { email: string; password: string }
   ) {
+    console.log('fall here contorller', {
+      credentials
+    });
     return this.authService.login(
       credentials,
       Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE

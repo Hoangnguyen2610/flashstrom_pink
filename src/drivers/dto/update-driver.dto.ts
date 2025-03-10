@@ -8,6 +8,7 @@ import {
 } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateDriverDto } from './create-driver.dto';
+import { Order } from 'src/orders/entities/order.entity';
 
 export class UpdateDriverDto extends PartialType(CreateDriverDto) {
   @IsOptional()
@@ -36,34 +37,27 @@ export class UpdateDriverDto extends PartialType(CreateDriverDto) {
 
   @IsOptional()
   @IsObject()
-  vehicle?: {
-    license_plate: string;
-    model: string;
-    color: string;
-  };
+  vehicle?: { license_plate: string; model: string; color: string };
 
   @IsOptional()
   @IsObject()
-  current_location?: {
-    lat: number;
-    lng: number;
-  };
+  current_location?: { lat: number; lng: number };
 
   @IsOptional()
   @IsArray()
-  current_order_id?: string[];
+  current_orders?: Order[]; // Giữ nguyên Order[]
 
   @IsOptional()
   @IsNumber()
-  created_at: number; // Unix timestamp for creation time
+  created_at?: number;
 
   @IsOptional()
   @IsNumber()
-  updated_at: number; // Unix timestamp for last update time
+  updated_at?: number;
 
   @IsOptional()
   @IsNumber()
-  last_login: number; // Unix timestamp for last login time
+  last_login?: number;
 
   @IsOptional()
   @IsObject()
@@ -83,8 +77,5 @@ export class UpdateDriverDto extends PartialType(CreateDriverDto) {
 
   @IsOptional()
   @IsObject()
-  rating?: {
-    average_rating: number;
-    review_count: number;
-  };
+  rating?: { average_rating: number; review_count: number };
 }

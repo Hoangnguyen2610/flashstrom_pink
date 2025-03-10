@@ -1,100 +1,70 @@
 import { Injectable } from '@nestjs/common';
+import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
 import { Driver } from './entities/driver.entity';
-import { CreateDriverDto } from './dto/create-driver.dto';
-import { UpdateDriverDto } from './dto/update-driver.dto';
+import { Order } from 'src/orders/entities/order.entity';
 
 @Injectable()
 export class DriversRepository {
   constructor(
     @InjectRepository(Driver)
-    private readonly driverRepository: Repository<Driver>
+    private driverEntityRepository: Repository<Driver>,
+    @InjectRepository(Order)
+    private orderRepository: Repository<Order>
   ) {}
 
-  async create(createDriverDto: CreateDriverDto): Promise<Driver> {
-    // Create a new Driver instance
-    const driver = new Driver();
-
-    // Set the initial values
-    Object.assign(driver, {
-      ...createDriverDto,
-      created_at: Math.floor(Date.now() / 1000),
-      updated_at: Math.floor(Date.now() / 1000)
+  async findById(
+    id: string,
+    options?: { relations?: string[] }
+  ): Promise<Driver> {
+    const driver = await this.driverEntityRepository.findOne({
+      where: { id },
+      relations: options?.relations || ['user']
     });
+    return driver || null;
+  }
 
-    // Save and return the new driver
-    return await this.driverRepository.save(driver);
+  async findOne(conditions: object): Promise<Driver> {
+    return await this.driverEntityRepository.findOne({ where: conditions });
+  }
+
+  async findOneOrFail(conditions: { where: object }): Promise<Driver> {
+    console.log('findOneOrFail conditions:', conditions);
+    return await this.driverEntityRepository.findOneOrFail({
+      where: conditions.where
+    }); // Sửa để lấy where từ conditions
   }
 
   async findAll(): Promise<Driver[]> {
-    return await this.driverRepository.find({
-      relations: ['user'] // Include related user data if needed
-    });
+    return await this.driverEntityRepository.find();
   }
 
-  async findById(id: string): Promise<Driver> {
-    return await this.driverRepository.findOne({
-      where: { id },
-      relations: ['user']
-    });
+  async create(createDriverDto: any): Promise<any> {
+    const driver = this.driverEntityRepository.create(createDriverDto);
+    return await this.driverEntityRepository.save(driver);
   }
 
-  async findByUserId(userId: string): Promise<Driver> {
-    return await this.driverRepository.findOne({
-      where: { user_id: userId },
-      relations: ['user']
-    });
-  }
-
-  async findOne(conditions: FindOptionsWhere<Driver>): Promise<Driver> {
-    return await this.driverRepository.findOne({
-      where: conditions,
-      relations: ['user']
-    });
-  }
-
-  async update(id: string, updateDriverDto: UpdateDriverDto): Promise<Driver> {
-    const driver = await this.findById(id);
-    if (!driver) {
-      return null;
-    }
-
-    // Update the driver instance
-    Object.assign(driver, {
-      ...updateDriverDto,
-      updated_at: Math.floor(Date.now() / 1000)
-    });
-
-    // Save and return the updated driver
-    return await this.driverRepository.save(driver);
+  async update(id: string, updateDriverDto: any): Promise<Driver> {
+    await this.driverEntityRepository.update(id, updateDriverDto);
+    return await this.findById(id);
   }
 
   async save(driver: Driver): Promise<Driver> {
-    return await this.driverRepository.save(driver);
+    return await this.driverEntityRepository.save(driver);
   }
 
   async remove(id: string): Promise<Driver> {
     const driver = await this.findById(id);
-    if (!driver) {
-      return null;
+    if (driver) {
+      await this.driverEntityRepository.delete(id);
     }
-    return await this.driverRepository.remove(driver);
+    return driver;
   }
 
-  // Helper method for updating specific fields
-  async updateFields(id: string, fields: Partial<Driver>): Promise<Driver> {
-    const driver = await this.findById(id);
-    if (!driver) {
-      return null;
-    }
-
-    // Update only the specified fields
-    Object.assign(driver, {
-      ...fields,
-      updated_at: Math.floor(Date.now() / 1000)
+  async findByUserId(userId: string): Promise<Driver> {
+    return await this.driverEntityRepository.findOne({
+      where: { user_id: userId }
     });
-
-    return await this.driverRepository.save(driver);
   }
+  // Ghi chú: Nếu cần truy cập manager, sử dụng this.driverEntityRepository.manager từ service
 }

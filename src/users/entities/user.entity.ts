@@ -1,5 +1,12 @@
-import { Entity, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany
+} from 'typeorm';
 import { Enum_UserType, Enum_AppTheme } from 'src/types/Payload';
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 
 @Entity('users')
 export class User {
@@ -47,6 +54,9 @@ export class User {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @OneToMany(() => FWallet, fwallet => fwallet.user)
+  fwallets: FWallet[];
 
   @Column({ type: 'timestamp', nullable: true })
   last_login: Date;

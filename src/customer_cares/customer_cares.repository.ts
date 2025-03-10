@@ -25,7 +25,19 @@ export class CustomerCaresRepository {
   }
 
   async findOne(condition: any): Promise<CustomerCare> {
-    return await this.repository.findOne({ where: condition });
+    console.log('check condition', condition);
+    const bla = await this.repository.findOne({ where: condition });
+    console.log('check bla', bla);
+    return bla;
+  }
+  async findByUserId(userId: string): Promise<CustomerCare> {
+    console.log('check condition', { user_id: userId });
+    const bla = await this.repository
+      .createQueryBuilder('customerCare')
+      .where('customerCare.user_id = :userId', { userId })
+      .getOne();
+    console.log('check bla', bla);
+    return bla;
   }
 
   async update(id: string, updateDto: any): Promise<CustomerCare> {

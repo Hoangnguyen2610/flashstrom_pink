@@ -6,16 +6,20 @@ import {
   ManyToOne,
   JoinColumn,
   ManyToMany,
-  JoinTable
+  JoinTable,
+  OneToMany
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { User } from 'src/users/entities/user.entity';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { Admin } from 'src/admin/entities/admin.entity';
+import { Order } from 'src/orders/entities/order.entity';
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 
 @Entity('restaurants')
 export class Restaurant {
-  @PrimaryColumn()
+  @PrimaryColumn({ type: 'varchar' })
   id: string;
 
   @Column()
@@ -72,14 +76,8 @@ export class Restaurant {
   @ManyToMany(() => FoodCategory)
   @JoinTable({
     name: 'restaurant_specializations',
-    joinColumn: {
-      name: 'restaurant_id',
-      referencedColumnName: 'id'
-    },
-    inverseJoinColumn: {
-      name: 'food_category_id',
-      referencedColumnName: 'id'
-    }
+    joinColumn: { name: 'restaurant_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'food_category_id', referencedColumnName: 'id' }
   })
   specialize_in: FoodCategory[];
 
@@ -99,6 +97,15 @@ export class Restaurant {
 
   @Column({ name: 'updated_at' })
   updated_at: number;
+
+  @ManyToMany(() => Admin, admin => admin.assigned_restaurants)
+  admins: Admin[];
+
+  @OneToMany(() => Order, order => order.restaurant)
+  orders: Order[]; // Quan hệ ngược với Order
+
+  @OneToMany(() => RatingsReview, ratingReview => ratingReview.restaurant)
+  ratings_reviews: RatingsReview[]; // Quan hệ ngược với RatingsReview
 
   @BeforeInsert()
   generateId() {

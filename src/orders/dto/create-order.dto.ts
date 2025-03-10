@@ -14,6 +14,11 @@ export class CreateOrderDto {
   @IsString()
   restaurant_id: string; // Restaurant ID
 
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  distance?: number; // Total amount for the order (if updated)
+
   @IsEnum([
     'PENDING',
     'RESTAURANT_ACCEPTED',

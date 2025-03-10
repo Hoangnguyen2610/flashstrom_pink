@@ -2,9 +2,12 @@ import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
-  CreateDateColumn
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn
 } from 'typeorm';
 import { Enum_UserType } from 'src/types/Payload';
+import { ChatRoom } from './chat-room.entity'; // Import ChatRoom
 
 export enum MessageType {
   TEXT = 'TEXT',
@@ -13,13 +16,17 @@ export enum MessageType {
   ORDER_INFO = 'ORDER_INFO'
 }
 
-@Entity()
+@Entity('messages')
 export class Message {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
   roomId: string;
+
+  @ManyToOne(() => ChatRoom, chatRoom => chatRoom.messages) // Quan hệ với ChatRoom
+  @JoinColumn({ name: 'roomId' }) // Trỏ tới cột roomId
+  chatRoom: ChatRoom;
 
   @Column()
   senderId: string;
@@ -28,7 +35,7 @@ export class Message {
     type: 'enum',
     enum: Enum_UserType
   })
-  senderType: Enum_UserType;
+  senderType: Enum_UserType; // Dùng để xác định sender thuộc loại nào
 
   @Column()
   content: string;
@@ -44,5 +51,7 @@ export class Message {
   timestamp: Date;
 
   @Column('text', { array: true, default: [] })
-  readBy: string[];
+  readBy: string[]; // Mảng ID của các user đã đọc, dùng senderType để xác định loại
+
+  // Không thêm quan hệ cứng cho senderId/readBy, xử lý trong service
 }

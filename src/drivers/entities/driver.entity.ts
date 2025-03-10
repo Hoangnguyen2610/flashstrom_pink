@@ -4,14 +4,21 @@ import {
   PrimaryColumn,
   BeforeInsert,
   ManyToOne,
-  JoinColumn
+  JoinColumn,
+  ManyToMany,
+  OneToMany,
+  JoinTable // Thêm JoinTable
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { User } from 'src/users/entities/user.entity';
+import { Admin } from 'src/admin/entities/admin.entity';
+import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
+import { Order } from 'src/orders/entities/order.entity'; // Thêm import Order
+import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 
 @Entity('drivers')
 export class Driver {
-  @PrimaryColumn()
+  @PrimaryColumn({ type: 'varchar' }) // Thêm type cho chắc
   id: string;
 
   @Column()
@@ -60,8 +67,19 @@ export class Driver {
     lng: number;
   };
 
-  @Column('text', { array: true, default: [] })
-  current_order_id: string[];
+  @ManyToMany(() => Order, order => order.drivers) // Thay current_order_id
+  @JoinTable({
+    name: 'driver_current_orders', // Tên bảng join
+    joinColumn: {
+      name: 'driver_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'order_id',
+      referencedColumnName: 'id'
+    }
+  })
+  current_orders: Order[]; // Đổi tên thành current_orders
 
   @Column('jsonb', { nullable: true })
   rating: {
@@ -86,6 +104,18 @@ export class Driver {
 
   @Column({ name: 'last_login', nullable: true })
   last_login: number;
+
+  @ManyToMany(() => Admin, admin => admin.assigned_drivers)
+  admins: Admin[];
+
+  @OneToMany(() => DriverProgressStage, progressStage => progressStage.driver)
+  progress_stages: DriverProgressStage[];
+
+  @OneToMany(() => Order, order => order.driver)
+  orders: Order[];
+
+  @OneToMany(() => RatingsReview, ratingReview => ratingReview.driver)
+  ratings_reviews: RatingsReview[]; // Quan hệ ngược với RatingsReview
 
   @BeforeInsert()
   generateId() {

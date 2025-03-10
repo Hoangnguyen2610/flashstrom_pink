@@ -1,4 +1,14 @@
-import { Entity, Column, PrimaryColumn, BeforeInsert } from 'typeorm';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { MenuItem } from 'src/menu_items/entities/menu_item.entity';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BeforeInsert,
+  ManyToOne,
+  JoinColumn
+} from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
 @Entity('cart_items')
@@ -14,6 +24,18 @@ export class CartItem {
 
   @Column()
   restaurant_id: string;
+
+  @ManyToOne(() => Customer)
+  @JoinColumn({ name: 'customer_id' })
+  customer: Customer;
+
+  @ManyToOne(() => MenuItem)
+  @JoinColumn({ name: 'item_id' })
+  item: MenuItem;
+
+  @ManyToOne(() => Restaurant)
+  @JoinColumn({ name: 'restaurant_id' })
+  restaurant: Restaurant;
 
   @Column('jsonb')
   variants: Array<{

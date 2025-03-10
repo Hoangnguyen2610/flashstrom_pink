@@ -6,6 +6,10 @@ import {
   IsNumber
 } from 'class-validator';
 import { AdminRole, AdminPermission, AdminStatus } from 'src/utils/types/admin';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { Driver } from 'src/drivers/entities/driver.entity';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { Admin } from '../entities/admin.entity';
 
 export class CreateAdminDto {
   @IsString()
@@ -19,15 +23,15 @@ export class CreateAdminDto {
 
   @IsArray()
   @IsOptional()
-  assigned_restaurants?: string[];
+  assigned_restaurants?: Restaurant[];
 
   @IsArray()
   @IsOptional()
-  assigned_drivers?: string[];
+  assigned_drivers?: Driver[];
 
   @IsArray()
   @IsOptional()
-  assigned_customer_care?: string[];
+  assigned_customer_care?: CustomerCare[];
 
   @IsOptional()
   @IsNumber()
@@ -39,7 +43,7 @@ export class CreateAdminDto {
 
   @IsString()
   @IsOptional()
-  created_by?: string;
+  created_by?: Admin;
 
   @IsEnum(AdminStatus)
   status: AdminStatus;

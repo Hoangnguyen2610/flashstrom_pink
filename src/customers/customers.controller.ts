@@ -18,6 +18,7 @@ import { CartItemsService } from 'src/cart_items/cart_items.service';
 import { CreateCartItemDto } from 'src/cart_items/dto/create-cart_item.dto';
 import { UpdateCartItemDto } from 'src/cart_items/dto/update-cart_item.dto';
 import { AddressBookService } from 'src/address_book/address_book.service';
+import { CreateAddressBookDto } from 'src/address_book/dto/create-address_book.dto';
 
 @Controller('customers')
 export class CustomersController {
@@ -43,9 +44,13 @@ export class CustomersController {
     return this.customersService.getAllRestaurants(id);
   }
 
+  @Get('/orders/:id')
+  getAllOrders(@Param('id') id: string) {
+    return this.customersService.getAllOrders(id);
+  }
+
   @Get('/cart-items/:customerId')
   findAllCartItemByCustomerId(@Param('customerId') customerId: string) {
-    console.log('go into this route');
     return this.cartItemService.findAll({ customer_id: customerId });
   }
 
@@ -56,8 +61,16 @@ export class CustomersController {
 
   @Get(':field/:value')
   findOne(@Param('field') field: string, @Param('value') value: string) {
-    console.log('go into this route');
     return this.customersService.findOne({ [field]: value });
+  }
+
+  @Patch('/favorite-restaurant/:id')
+  toggleFavoriteRestaurant(
+    @Param('id') id: string,
+    @Body() dto: UpdateCustomerFavoriteRestaurantDto
+  ) {
+    console.log('check toggle favourite restaurant controller', id);
+    return this.customersService.update(id, dto);
   }
 
   @Patch('/preferred-category/:id')
@@ -66,13 +79,6 @@ export class CustomersController {
     @Body() preferred_category: UpdateCustomerPreferredCategoryDto
   ) {
     return this.customersService.update(id, preferred_category);
-  }
-  @Patch('/favorite-restaurant/:id')
-  toggleFavoriteRestaurant(
-    @Param('id') id: string,
-    @Body() favorite_restaurant: UpdateCustomerFavoriteRestaurantDto
-  ) {
-    return this.customersService.update(id, favorite_restaurant);
   }
 
   @Patch('/cart-items/:customerId/:cartItemId')
@@ -87,13 +93,19 @@ export class CustomersController {
     });
   }
 
+  @Post('/address/:id/')
+  addAddress(
+    @Param('id') customerId: string,
+    @Body() createAddressBookDto: CreateAddressBookDto
+  ) {
+    return this.addressBookService.create(createAddressBookDto, customerId);
+  }
+
   @Post('/cart-items/:id')
   createCartItem(
     @Param('id') customerId: string, // Get the customer ID from the route param
     @Body() createCartItemDto: CreateCartItemDto // Get the rest of the data from the body
   ) {
-    console.log('check famm me');
-
     // Pass the customerId and the rest of the DTO to the service
     return this.cartItemService.create({
       ...createCartItemDto,

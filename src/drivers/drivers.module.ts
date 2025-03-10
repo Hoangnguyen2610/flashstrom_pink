@@ -11,10 +11,12 @@ import { OrdersModule } from '../orders/orders.module';
 import { DriverProgressStagesModule } from '../driver_progress_stages/driver_progress_stages.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
+import { OrdersRepository } from 'src/orders/orders.repository';
+import { Order } from 'src/orders/entities/order.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Driver, AddressBook]),
+    TypeOrmModule.forFeature([Driver, AddressBook, Order]),
     forwardRef(() => RestaurantsModule),
     forwardRef(() => OrdersModule),
     DriverProgressStagesModule,
@@ -24,6 +26,7 @@ import { AddressBook } from 'src/address_book/entities/address_book.entity';
   providers: [
     DriversService,
     DriversGateway,
+    OrdersRepository,
     DriversRepository,
     AddressBookRepository
   ],

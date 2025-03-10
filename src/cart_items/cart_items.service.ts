@@ -30,7 +30,6 @@ export class CartItemsService {
           'Item ID and Customer ID are required'
         );
       }
-
       // Validate menu item and customer
       const [menuItem, customer] = await Promise.all([
         this.menuItemsRepository.findById(item_id),
@@ -69,14 +68,19 @@ export class CartItemsService {
           }
         );
 
-        return createResponse('OK', updated, 'Cart item updated successfully');
+        return createResponse(
+          'OK',
+          updated,
+          'Cart item added quantity successfully'
+        );
       }
 
       // Create new cart item
       const populatedVariants = await this.populateVariants(variants);
       const newCartItem = await this.cartItemsRepository.create({
         ...createCartItemDto,
-        variants: populatedVariants
+        variants: populatedVariants,
+        restaurant_id: menuItem.restaurant_id
       });
 
       return createResponse(

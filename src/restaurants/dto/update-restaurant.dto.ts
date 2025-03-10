@@ -76,4 +76,8 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
     sat: { from: number; to: number };
     sun: { from: number; to: number };
   };
+
+  @IsOptional()
+  @IsArray()
+  food_category_ids?: string[];
 }

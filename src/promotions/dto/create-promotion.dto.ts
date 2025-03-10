@@ -1,6 +1,6 @@
 import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity'; // Import FoodCategory
 
-// Enum for status
 export enum PromotionStatus {
   ACTIVE = 'ACTIVE',
   EXPIRED = 'EXPIRED',
@@ -8,15 +8,12 @@ export enum PromotionStatus {
   CANCELLED = 'CANCELLED'
 }
 
-// Enum for discount type
 export enum DiscountType {
   PERCENTAGE = 'PERCENTAGE',
-
   FIXED = 'FIXED',
   BOGO = 'BOGO'
 }
 
-// Add BOGO details interface
 interface BogoDetails {
   buy_quantity: number;
   get_quantity: number;
@@ -37,7 +34,7 @@ export class CreatePromotionDto {
   @IsNumber()
   end_date: number;
 
-  @IsEnum(DiscountType) // Validates the discount_type against the DiscountType enum
+  @IsEnum(DiscountType)
   discount_type: DiscountType;
 
   @IsNumber()
@@ -51,18 +48,14 @@ export class CreatePromotionDto {
   minimum_order_value: number;
 
   @IsOptional()
-  avatar?: {
-    url: string;
-    key: string;
-  }; // Avatar object with url and key, optional
+  avatar?: { url: string; key: string };
 
   @IsOptional()
-  @IsEnum(PromotionStatus) // Validates the status against the PromotionStatus enum
+  @IsEnum(PromotionStatus)
   status: PromotionStatus;
 
   @IsOptional()
-  @IsString({ each: true }) // Ensures that each item in the array is a string
-  food_categories: string[];
+  food_categories?: FoodCategory[]; // Đổi từ string[] sang FoodCategory[]
 
   @IsOptional()
   bogo_details?: BogoDetails;

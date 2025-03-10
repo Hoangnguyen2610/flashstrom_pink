@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryColumn, BeforeInsert } from 'typeorm';
+import { Order } from 'src/orders/entities/order.entity';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BeforeInsert,
+  OneToMany
+} from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
 @Entity('address_books')
@@ -35,6 +42,12 @@ export class AddressBook {
 
   @Column()
   title: string;
+
+  @OneToMany(() => Order, order => order.customerAddress)
+  customer_orders: Order[]; // Quan hệ ngược với Order (customer_location)
+
+  @OneToMany(() => Order, order => order.restaurantAddress)
+  restaurant_orders: Order[]; // Quan hệ ngược với Order (restaurant_location)
 
   @BeforeInsert()
   generateId() {

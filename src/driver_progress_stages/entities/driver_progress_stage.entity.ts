@@ -1,18 +1,45 @@
-import { Entity, Column, PrimaryColumn, BeforeInsert, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BeforeInsert,
+  Index,
+  ManyToOne,
+  JoinColumn,
+  ManyToMany,
+  JoinTable
+} from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import { Driver } from 'src/drivers/entities/driver.entity'; // Import Driver
+import { Order } from 'src/orders/entities/order.entity'; // Import Order
 
 @Entity('driver_progress_stages')
 @Index(['driver_id', 'current_state'])
 export class DriverProgressStage {
-  @PrimaryColumn()
+  @PrimaryColumn({ type: 'varchar' }) // Thêm type cho chắc
   id: string;
 
-  @Column()
+  @Column() // Giữ cột driver_id để lưu giá trị
   @Index()
   driver_id: string;
 
-  @Column('text', { array: true })
-  order_ids: string[];
+  @ManyToOne(() => Driver, driver => driver.progress_stages) // Liên kết với Driver
+  @JoinColumn({ name: 'driver_id' }) // Trỏ tới cột driver_id
+  driver: Driver;
+
+  @ManyToMany(() => Order, order => order.driver_progress_stages) // Liên kết với Order
+  @JoinTable({
+    name: 'driver_progress_orders', // Tên bảng join
+    joinColumn: {
+      name: 'driver_progress_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'order_id',
+      referencedColumnName: 'id'
+    }
+  })
+  orders: Order[]; // Thay order_ids thành orders
 
   @Column({
     type: 'enum',
@@ -41,18 +68,12 @@ export class DriverProgressStage {
     timestamp: number;
     duration: number;
     details?: {
-      location?: {
-        lat: number;
-        lng: number;
-      };
+      location?: { lat: number; lng: number };
       estimated_time?: number;
       actual_time?: number;
       notes?: string;
       tip?: number;
-      weather?: {
-        temperature?: number;
-        condition?: string;
-      };
+      weather?: { temperature?: number; condition?: string };
     };
   }>;
 
@@ -76,10 +97,7 @@ export class DriverProgressStage {
     event_type: 'driver_start' | 'pickup_complete' | 'delivery_complete';
     event_timestamp: Date;
     event_details?: {
-      location?: {
-        lat: number;
-        lng: number;
-      };
+      location?: { lat: number; lng: number };
       notes?: string;
     };
   }>;

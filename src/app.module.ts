@@ -66,6 +66,10 @@ import { FchatModule } from './FChat/fchat.module';
       ssl: true,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: true // Set to false in production
+      // extra: {
+      //   statement_timeout: 5000, // 10 giây cho mỗi truy vấn
+      //   lock_timeout: 3000 // 5 giây cho khóa
+      // }
     }),
     UsersModule
   ],

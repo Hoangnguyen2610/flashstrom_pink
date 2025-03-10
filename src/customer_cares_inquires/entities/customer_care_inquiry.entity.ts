@@ -10,10 +10,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { Customer } from 'src/customers/entities/customer.entity';
 import { Admin } from 'src/admin/entities/admin.entity';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { Order } from 'src/orders/entities/order.entity';
 
 @Entity('customer_care_inquiries')
 export class CustomerCareInquiry {
-  @PrimaryColumn()
+  @PrimaryColumn({ type: 'varchar' }) // Thêm type cho chắc
   id: string;
 
   @Column()
@@ -23,8 +24,13 @@ export class CustomerCareInquiry {
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 
-  @Column()
-  assigned_to: string;
+  @ManyToOne(() => Admin, { nullable: true })
+  @JoinColumn({ name: 'assigned_admin_id' }) // Tách riêng cột
+  assigned_admin: Admin;
+
+  @ManyToOne(() => CustomerCare, { nullable: true })
+  @JoinColumn({ name: 'assigned_customer_care_id' }) // Tách riêng cột
+  assigned_customer_care: CustomerCare;
 
   @Column({
     type: 'enum',
@@ -32,12 +38,6 @@ export class CustomerCareInquiry {
     default: 'CUSTOMER_CARE'
   })
   assignee_type: 'ADMIN' | 'CUSTOMER_CARE';
-
-  @ManyToOne(() => Admin, { nullable: true })
-  assigned_admin: Admin;
-
-  @ManyToOne(() => CustomerCare, { nullable: true })
-  assigned_customer_care: CustomerCare;
 
   @Column()
   subject: string;
@@ -59,8 +59,9 @@ export class CustomerCareInquiry {
   })
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
-  @Column({ nullable: true })
-  order_id: string;
+  @ManyToOne(() => Order, { nullable: true })
+  @JoinColumn({ name: 'order_id' })
+  order: Order;
 
   @Column({ type: 'text', nullable: true })
   resolution_notes: string;

@@ -10,7 +10,6 @@ import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
 import { CustomersRepository } from 'src/customers/customers.repository';
 import { DriversRepository } from 'src/drivers/drivers.repository';
 import { Injectable } from '@nestjs/common';
-import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
 
@@ -278,9 +277,11 @@ export class AuthService {
   }
 
   private async handleCustomerCareLogin(user: User, basePayload: BasePayload) {
-    const userWithRole = await this.customerCareRepository.findOne({
-      user_id: user.id
-    });
+    console.log('cehck user', user);
+    const userWithRole = await this.customerCareRepository.findByUserId(
+      user.id
+    );
+    console.log('check suerwithrole', userWithRole);
 
     if (!userWithRole) {
       return createResponse(
@@ -289,7 +290,7 @@ export class AuthService {
         'Customer Care representative not found'
       );
     }
-
+    console.log('check user with role', userWithRole, 'user', user);
     const customerCarePayload = {
       ...basePayload,
       id: userWithRole.id,
@@ -489,7 +490,7 @@ export class AuthService {
 
       case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
         newUserWithRole = await this.customerCareRepository.create({
-          user_id: existingUser.id,
+          user_id: existingUser.id as unknown as User,
           first_name: userData.first_name,
           last_name: userData.last_name,
           contact_email: [
@@ -628,6 +629,29 @@ export class AuthService {
         break;
 
       case Enum_UserType.RESTAURANT_OWNER:
+        const {
+          contact_email,
+          contact_phone,
+          opening_hours,
+          owner_name,
+          restaurant_name,
+          status
+        } = userData;
+        if (
+          !contact_email ||
+          !contact_phone ||
+          !opening_hours ||
+          !owner_name ||
+          !restaurant_name ||
+          !status
+        ) {
+          console.log('fall here', opening_hours);
+          return createResponse(
+            'MissingInput',
+            null,
+            'Missing required fields: contact_email, contact_phone, opening_hours, owner_name, restaurant_name, status'
+          );
+        }
         if (!userData.restaurant_name) {
           return createResponse(
             'InvalidFormatInput',
@@ -700,10 +724,18 @@ export class AuthService {
 
     switch (type) {
       case Enum_UserType.CUSTOMER:
-        console.log('customer', {
+        // Create FWallet for new drivers
+        fWallet = await this.fWalletsRepository.create({
           ...userData,
           password: hashedPassword,
-          user_id: newUser.id
+          user_id: newUser.id,
+          balance: 0
+        });
+
+        // Add F_WALLET to user_type
+        newUser.user_type.push(Enum_UserType.F_WALLET);
+        await this.userRepository.update(newUser.id, {
+          user_type: newUser.user_type
         });
         newUserWithRole = await this.customersRepository.create({
           ...userData,
@@ -758,6 +790,19 @@ export class AuthService {
         break;
 
       case Enum_UserType.RESTAURANT_OWNER:
+        // Create FWallet for new drivers
+        fWallet = await this.fWalletsRepository.create({
+          ...userData,
+          password: hashedPassword,
+          user_id: newUser.id,
+          balance: 0
+        });
+
+        // Add F_WALLET to user_type
+        newUser.user_type.push(Enum_UserType.F_WALLET);
+        await this.userRepository.update(newUser.id, {
+          user_type: newUser.user_type
+        });
         newUserWithRole = await this.restaurantsRepository.create({
           ...userData,
           password: hashedPassword,
@@ -776,8 +821,21 @@ export class AuthService {
         break;
 
       case Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE:
-        newUserWithRole = await this.customerCareRepository.create({
+        // Create FWallet for new drivers
+        fWallet = await this.fWalletsRepository.create({
+          ...userData,
+          password: hashedPassword,
           user_id: newUser.id,
+          balance: 0
+        });
+
+        // Add F_WALLET to user_type
+        newUser.user_type.push(Enum_UserType.F_WALLET);
+        await this.userRepository.update(newUser.id, {
+          user_type: newUser.user_type
+        });
+        newUserWithRole = await this.customerCareRepository.create({
+          user_id: newUser.id as unknown as User,
           first_name: userData.first_name,
           last_name: userData.last_name,
           contact_email: [
@@ -837,107 +895,5 @@ export class AuthService {
   async hasRole(userId: string, role: Enum_UserType): Promise<boolean> {
     const user = await this.userRepository.findById(userId);
     return user?.user_type.includes(role) || false;
-  }
-
-  async registerWithRole(userData: CreateUserDto, role: Enum_UserType) {
-    try {
-      // Check if user exists
-      const existingUser = await this.userRepository.findByEmail(
-        userData.email
-      );
-
-      if (existingUser) {
-        // If user exists, create role-specific profile
-        let newUserWithRole;
-
-        if (role === Enum_UserType.DRIVER) {
-          newUserWithRole = await this.driverRepository.create({
-            user_id: existingUser.id,
-            first_name: userData.first_name,
-            last_name: userData.last_name,
-            contact_email: [
-              { title: 'Primary', is_default: true, email: userData.email }
-            ],
-            contact_phone: [
-              { title: 'Primary', is_default: true, number: userData.phone }
-            ],
-            available_for_work: false,
-            is_on_delivery: false,
-            active_points: 0,
-            current_order_id: [],
-            vehicle: {
-              license_plate: '',
-              model: '',
-              color: ''
-            },
-            current_location: {
-              lat: 0,
-              lng: 0
-            },
-            rating: {
-              average_rating: 0,
-              review_count: 0
-            }
-          });
-        }
-        // ... handle other roles ...
-
-        return {
-          user: existingUser,
-          profile: newUserWithRole
-        };
-      }
-
-      // If user doesn't exist, create new user and role-specific profile
-      const hashedPassword = await bcrypt.hash(userData.password, 10);
-      const newUser = await this.userRepository.create({
-        ...userData,
-        password: hashedPassword,
-        verification_code: Math.floor(Math.random() * 1000000),
-        is_verified: false
-      });
-
-      let newUserWithRole;
-
-      if (role === Enum_UserType.DRIVER) {
-        newUserWithRole = await this.driverRepository.create({
-          user_id: newUser.id,
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          contact_email: [
-            { title: 'Primary', is_default: true, email: userData.email }
-          ],
-          contact_phone: [
-            { title: 'Primary', is_default: true, number: userData.phone }
-          ],
-          available_for_work: false,
-          is_on_delivery: false,
-          active_points: 0,
-          current_order_id: [],
-          vehicle: {
-            license_plate: '',
-            model: '',
-            color: ''
-          },
-          current_location: {
-            lat: 0,
-            lng: 0
-          },
-          rating: {
-            average_rating: 0,
-            review_count: 0
-          }
-        });
-      }
-      // ... handle other roles ...
-
-      return {
-        user: newUser,
-        profile: newUserWithRole
-      };
-    } catch (error) {
-      console.error('Error in registerWithRole:', error);
-      throw error;
-    }
   }
 }

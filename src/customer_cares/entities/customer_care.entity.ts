@@ -1,4 +1,16 @@
-import { Entity, Column, PrimaryColumn, BeforeInsert } from 'typeorm';
+import { Admin } from 'src/admin/entities/admin.entity';
+import { CustomerCareInquiry } from 'src/customer_cares_inquires/entities/customer_care_inquiry.entity';
+import { User } from 'src/users/entities/user.entity';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BeforeInsert,
+  ManyToMany,
+  OneToOne,
+  OneToMany,
+  JoinColumn
+} from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
 @Entity('customer_cares')
@@ -6,8 +18,9 @@ export class CustomerCare {
   @PrimaryColumn()
   id: string;
 
-  @Column()
-  user_id: string;
+  @OneToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
+  user_id: User;
 
   @Column('jsonb', { nullable: true })
   contact_email: Array<{
@@ -29,8 +42,11 @@ export class CustomerCare {
   @Column({ nullable: true })
   last_name: string;
 
-  @Column('text', { array: true, nullable: true })
-  assigned_tickets: string[];
+  @OneToMany(
+    () => CustomerCareInquiry,
+    inquiry => inquiry.assigned_customer_care
+  )
+  assigned_tickets: CustomerCareInquiry[];
 
   @Column()
   created_at: number;
@@ -52,6 +68,9 @@ export class CustomerCare {
 
   @Column({ default: false })
   is_assigned: boolean;
+
+  @ManyToMany(() => Admin, admin => admin.assigned_customer_care)
+  admins: Admin[];
 
   @BeforeInsert()
   generateId() {

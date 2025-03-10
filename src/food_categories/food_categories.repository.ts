@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm'; // Thêm In
 import { InjectRepository } from '@nestjs/typeorm';
 import { FoodCategory } from './entities/food_category.entity';
 import { CreateFoodCategoryDto } from './dto/create-food_category.dto';
@@ -23,6 +23,12 @@ export class FoodCategoriesRepository {
 
   async findById(id: string): Promise<FoodCategory> {
     return await this.repository.findOne({ where: { id } });
+  }
+
+  async findByIds(ids: string[]): Promise<FoodCategory[]> {
+    return await this.repository.find({
+      where: { id: In(ids) } // Tìm nhiều bản ghi theo mảng ids
+    });
   }
 
   async findByName(name: string): Promise<FoodCategory> {
