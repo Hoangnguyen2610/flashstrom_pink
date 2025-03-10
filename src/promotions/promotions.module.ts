@@ -1,17 +1,14 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { PromotionSchema } from './promotions.schema';
-import { PromotionsService } from './promotions.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { PromotionsController } from './promotions.controller';
+import { PromotionsService } from './promotions.service';
+import { Promotion } from './entities/promotion.entity';
+import { PromotionsRepository } from './promotions.repository';
 
 @Module({
-  imports: [
-    MongooseModule.forFeature([{ name: 'Promotion', schema: PromotionSchema }]) // Register Promotion schema
-  ],
-  providers: [PromotionsService],
+  imports: [TypeOrmModule.forFeature([Promotion])],
   controllers: [PromotionsController],
-
-  exports: [MongooseModule, PromotionsService], // Export MongooseModule to make the Promotion model available
-
+  providers: [PromotionsService, PromotionsRepository],
+  exports: [PromotionsService, PromotionsRepository]
 })
 export class PromotionsModule {}

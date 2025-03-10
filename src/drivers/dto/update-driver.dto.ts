@@ -1,56 +1,57 @@
 import {
   IsString,
   IsArray,
-  IsEnum,
   IsOptional,
-  IsInt,
   IsObject,
   IsNumber,
   IsBoolean
 } from 'class-validator';
-import { Enum_AppTheme } from 'src/types/Payload'; // Importing Enum_AppTheme from the schema
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateDriverDto } from './create-driver.dto';
 
 export class UpdateDriverDto extends PartialType(CreateDriverDto) {
   @IsOptional()
   @IsString()
-  _id: string; // Driver's first name
+  id?: string;
 
   @IsOptional()
   @IsString()
-  first_name: string; // Driver's first name
+  user_id?: string;
 
   @IsOptional()
   @IsString()
-  last_name: string; // Driver's last name
+  first_name?: string;
+
+  @IsOptional()
+  @IsString()
+  last_name?: string;
 
   @IsOptional()
   @IsArray()
-  contact_email: { title: string; is_default: boolean; email: string }[]; // Array of contact emails
+  contact_email?: { title: string; is_default: boolean; email: string }[];
 
   @IsOptional()
   @IsArray()
-  contact_phone: { title: string; number: string; is_default: boolean }[]; // Array of contact phone numbers
+  contact_phone?: { title: string; number: string; is_default: boolean }[];
 
   @IsOptional()
   @IsObject()
-  vehicle: {
+  vehicle?: {
     license_plate: string;
     model: string;
     color: string;
-  }; // Vehicle information
+  };
 
   @IsOptional()
   @IsObject()
-  current_location: {
+  current_location?: {
     lat: number;
     lng: number;
-  }; // Current location with latitude and longitude
+  };
 
   @IsOptional()
   @IsArray()
-  current_order_id: string[]; // Array of order IDs (max 3 orders)
+  current_order_id?: string[];
 
   @IsOptional()
   @IsNumber()
@@ -66,21 +67,24 @@ export class UpdateDriverDto extends PartialType(CreateDriverDto) {
 
   @IsOptional()
   @IsObject()
-  @IsOptional()
-  avatar: { key: string; url: string }; // Optional avatar with key and url
+  avatar?: { key: string; url: string };
 
   @IsOptional()
   @IsBoolean()
-  available_for_work: boolean; // Indicates if the driver is available for work
+  available_for_work?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  is_on_delivery: boolean; // Indicates if the driver is currently on a delivery
+  is_on_delivery?: boolean;
 
+  @IsOptional()
+  @IsNumber()
+  active_points?: number;
+
+  @IsOptional()
   @IsObject()
-  @IsOptional()
-  rating: {
+  rating?: {
     average_rating: number;
     review_count: number;
-  }; // Optional rating object with average rating and review count
+  };
 }

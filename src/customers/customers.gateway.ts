@@ -20,7 +20,7 @@ export class CustomersGateway {
     @MessageBody() updateCustomerDto: UpdateCustomerDto
   ) {
     const customer = await this.customersService.update(
-      updateCustomerDto._id,
+      updateCustomerDto.id,
       updateCustomerDto
     );
     this.server.emit('customerUpdated', customer);

@@ -1,33 +1,54 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CustomersController } from './customers.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { CustomerSchema } from './customer.schema';
-import { UserSchema } from 'src/user/user.schema';
-import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
-import { AddressBookSchema } from 'src/address_book/address_book.schema';
-import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
-import { CartItemSchema } from 'src/cart_items/cart_items.schema';
+import { User } from '../users/entities/user.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 // Import CartItemsModule to make CartItemsService available
 import { CartItemsModule } from 'src/cart_items/cart_items.module';
 import { AddressBookService } from 'src/address_book/address_book.service';
 import { CustomersGateway } from './customers.gateway';
-
+import { UserRepository } from 'src/users/users.repository';
+import { UsersModule } from 'src/users/users.module';
+import { AddressBook } from 'src/address_book/entities/address_book.entity';
+import { AddressBookModule } from 'src/address_book/address_book.module';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { RestaurantsModule } from 'src/restaurants/restaurants.module';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { Customer } from './entities/customer.entity';
+import { CustomersRepository } from './customers.repository';
+import { CartItem } from 'src/cart_items/entities/cart_item.entity';
+import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: 'Customer', schema: CustomerSchema },
-      { name: 'CartItem', schema: CartItemSchema },
-      { name: 'Restaurant', schema: RestaurantSchema },
-      { name: 'User', schema: UserSchema },
-      { name: 'AddressBook', schema: AddressBookSchema },
-      { name: 'FoodCategory', schema: FoodCategorySchema }
+    TypeOrmModule.forFeature([
+      User,
+      AddressBook,
+      FoodCategory,
+      Restaurant,
+      Customer,
+      CartItem
     ]),
-    CartItemsModule
+    forwardRef(() => CartItemsModule),
+    UsersModule,
+    AddressBookModule,
+    forwardRef(() => RestaurantsModule)
   ],
   controllers: [CustomersController],
-  providers: [CustomersService, AddressBookService, CustomersGateway],
-  exports: [CustomersService, CustomersGateway]
+  providers: [
+    CustomersService,
+    AddressBookService,
+    CustomersGateway,
+    UserRepository,
+    AddressBookRepository,
+    FoodCategoriesRepository,
+    RestaurantsRepository,
+    CustomersRepository,
+    CartItemsRepository
+  ],
+  exports: [CustomersService, CustomersGateway, CustomersRepository]
 })
 export class CustomersModule {}

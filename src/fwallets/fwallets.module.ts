@@ -1,16 +1,14 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { FWalletSchema, FWallet } from './fwallets.schema';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { FWallet } from './entities/fwallet.entity';
 import { FWalletService } from './fwallets.service';
 import { FWalletController } from './fwallets.controller';
+import { FWalletsRepository } from './fwallets.repository';
 
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: 'FWallet', schema: FWalletSchema } // Register the FWallet model
-    ])
-  ],
-  providers: [FWalletService],
-  controllers: [FWalletController]
+  imports: [TypeOrmModule.forFeature([FWallet])],
+  controllers: [FWalletController],
+  providers: [FWalletService, FWalletsRepository],
+  exports: [FWalletService]
 })
 export class FwalletsModule {}

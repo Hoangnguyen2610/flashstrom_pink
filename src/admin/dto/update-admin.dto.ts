@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateAdminDto } from './create-admin.dto';
-import { IsEnum, IsArray, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsArray, IsOptional } from 'class-validator';
 import { AdminRole, AdminPermission, AdminStatus } from 'src/utils/types/admin';
 
 export class UpdateAdminDto extends PartialType(CreateAdminDto) {
@@ -25,7 +25,7 @@ export class UpdateAdminDto extends PartialType(CreateAdminDto) {
   @IsArray()
   assigned_customer_care?: string[];
 
-  @IsOptional()
   @IsEnum(AdminStatus)
+  @IsOptional()
   status?: AdminStatus;
 }

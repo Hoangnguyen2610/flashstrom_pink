@@ -1,43 +1,50 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
-import { Driver } from './drivers.schema'; // Assuming a Driver schema similar to Customer
-import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
+import { Driver } from './entities/driver.entity';
+import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
 import { Type_Delivery_Order } from 'src/types/Driver';
-import { AddressBookService } from 'src/address_book/address_book.service';
 import { calculateDistance } from 'src/utils/distance';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { DriversRepository } from './drivers.repository';
 
 @Injectable()
 export class DriversService {
   constructor(
-    private readonly addressBookService: AddressBookService,
-    @InjectModel('Driver') private readonly driverModel: Model<Driver>
+    private readonly driversRepository: DriversRepository,
+    private readonly addressRepository: AddressBookRepository
   ) {}
 
-  // Create a new driver
   async create(createDriverDto: CreateDriverDto): Promise<ApiResponse<Driver>> {
     try {
-      const existingDriver = await this.findDriverByUserId(
+      const existingDriver = await this.driversRepository.findByUserId(
         createDriverDto.user_id
       );
       if (existingDriver) {
-        return this.handleDuplicateDriver();
+        return createResponse(
+          'DuplicatedRecord',
+          null,
+          'Driver with this user ID already exists'
+        );
       }
 
-      const newDriver = await this.saveNewDriver(createDriverDto);
+      const newDriver = await this.driversRepository.create(createDriverDto);
       return createResponse('OK', newDriver, 'Driver created successfully');
     } catch (error) {
-      return this.handleError('Error creating driver:', error);
+      console.error('Error creating driver:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while creating the driver'
+      );
     }
   }
 
   // Get all drivers
   async findAll(): Promise<ApiResponse<Driver[]>> {
     try {
-      const drivers = await this.driverModel.find().exec();
+      const drivers = await this.driversRepository.findAll();
       return createResponse('OK', drivers, 'Fetched all drivers');
     } catch (error) {
       return this.handleError('Error fetching drivers:', error);
@@ -47,7 +54,7 @@ export class DriversService {
   // Get a driver by ID
   async findDriverById(id: string): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driverModel.findById(id).exec();
+      const driver = await this.driversRepository.findById(id);
       return this.handleDriverResponse(driver);
     } catch (error) {
       return this.handleError('Error fetching driver:', error);
@@ -56,7 +63,7 @@ export class DriversService {
 
   async findOne(conditions: object): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driverModel.findOne(conditions).exec();
+      const driver = await this.driversRepository.findOne(conditions);
       return this.handleDriverResponse(driver);
     } catch (error) {
       return this.handleError('Error fetching driver:', error);
@@ -69,13 +76,13 @@ export class DriversService {
     updateDriverDto: UpdateDriverDto
   ): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driverModel.findById(id).exec();
+      const driver = await this.driversRepository.findById(id);
       if (!driver) {
         return createResponse('NotFound', null, 'Driver not found');
       }
 
-      const updatedDriver = await this.updateDriverDetails(
-        driver,
+      const updatedDriver = await this.driversRepository.update(
+        id,
         updateDriverDto
       );
       return createResponse('OK', updatedDriver, 'Driver updated successfully');
@@ -86,13 +93,13 @@ export class DriversService {
 
   async setAvailability(id: string): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driverModel.findById(id).exec();
+      const driver = await this.driversRepository.findById(id);
       if (!driver) {
         return createResponse('NotFound', null, 'Driver not found');
       }
 
       driver.available_for_work = !driver.available_for_work;
-      const savedDriver = await driver.save();
+      const savedDriver = await this.driversRepository.save(driver);
       return createResponse(
         'OK',
         savedDriver,
@@ -106,7 +113,7 @@ export class DriversService {
   // Delete a driver by ID
   async remove(id: string): Promise<ApiResponse<null>> {
     try {
-      const deletedDriver = await this.driverModel.findByIdAndDelete(id).exec();
+      const deletedDriver = await this.driversRepository.remove(id);
       if (!deletedDriver) {
         return createResponse('NotFound', null, 'Driver not found');
       }
@@ -121,12 +128,14 @@ export class DriversService {
     entityId: string
   ): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driverModel.findByIdAndUpdate(
-        entityId,
-        { avatar: { url: uploadResult.url, key: uploadResult.public_id } },
-        { new: true }
-      );
-      return this.handleDriverResponse(driver);
+      const driver = await this.driversRepository.findById(entityId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      driver.avatar = { url: uploadResult.url, key: uploadResult.public_id };
+      const savedDriver = await this.driversRepository.save(driver);
+      return this.handleDriverResponse(savedDriver);
     } catch (error) {
       return this.handleError('Error updating driver avatar:', error);
     }
@@ -166,7 +175,7 @@ export class DriversService {
 
       // Hard-coded to return specific driver only
       const specificDriver = listAvailableDrivers.find(
-        driver => driver._id === 'DRI_1bcb34fa-ac9d-4611-b432-4e05586e137c'
+        driver => driver._id === 'FF_DRI_dfc9f674-e334-4bfc-b639-065c40cb301f'
       );
       const result = specificDriver ? [specificDriver] : [];
       return createResponse('OK', result, 'Driver selected successfully');
@@ -181,7 +190,7 @@ export class DriversService {
     restaurantLocation: { lat: number; lng: number }
   ): Promise<ApiResponse<Driver>> {
     try {
-      const driver = await this.driverModel.findById(driverId).exec();
+      const driver = await this.driversRepository.findById(driverId);
       if (!driver) {
         return createResponse('NotFound', null, 'Driver not found');
       }
@@ -204,21 +213,94 @@ export class DriversService {
       );
 
       // Update driver
-      const updatedDriver = await this.driverModel
-        .findByIdAndUpdate(
-          driverId,
-          {
-            $push: { current_order_id: orderId },
-            $inc: { active_points: points },
-            is_on_delivery: true
-          },
-          { new: true }
-        )
-        .exec();
+      const updatedDriver = await this.driversRepository.update(driverId, {
+        current_order_id: [...driver.current_order_id, orderId],
+        active_points: driver.active_points + points,
+        is_on_delivery: true,
+        created_at: driver.created_at,
+        updated_at: driver.updated_at,
+        last_login: driver.last_login
+      });
 
       return createResponse('OK', updatedDriver, 'Driver updated successfully');
     } catch (error) {
       return this.handleError('Error updating driver:', error);
+    }
+  }
+
+  async updateDriverDeliveryStatus(
+    driverId: string,
+    orderId: string,
+    status: boolean
+  ): Promise<ApiResponse<Driver>> {
+    try {
+      const driver = await this.driversRepository.findById(driverId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      const updateData: UpdateDriverDto = {
+        is_on_delivery: status,
+        created_at: driver.created_at,
+        updated_at: driver.updated_at,
+        last_login: driver.last_login
+      };
+
+      if (status) {
+        // Adding order to current orders
+        updateData.current_order_id = [
+          ...(driver.current_order_id || []),
+          orderId
+        ];
+        updateData.active_points = (driver.active_points || 0) + 1;
+      } else {
+        // Removing order from current orders
+        updateData.current_order_id = (driver.current_order_id || []).filter(
+          id => id !== orderId
+        );
+      }
+
+      const updatedDriver = await this.driversRepository.update(
+        driverId,
+        updateData
+      );
+      return createResponse(
+        'OK',
+        updatedDriver,
+        'Driver status updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating driver delivery status:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while updating driver status'
+      );
+    }
+  }
+
+  async updateDriverOrder(
+    driverId: string,
+    orderIds: string[]
+  ): Promise<ApiResponse<any>> {
+    try {
+      const driver = await this.driversRepository.findById(driverId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      const updatedDriver = await this.driversRepository.update(driverId, {
+        current_order_id: orderIds,
+        is_on_delivery: orderIds.length > 0,
+        updated_at: Math.floor(Date.now() / 1000),
+        created_at: driver.created_at,
+        last_login: driver.last_login
+      });
+
+      return createResponse('OK', updatedDriver, 'Driver updated successfully');
+    } catch (error) {
+      console.error('Error updating driver order:', error);
+      return createResponse('ServerError', null, 'Error updating driver order');
     }
   }
 
@@ -241,23 +323,6 @@ export class DriversService {
   }
 
   // Private helper methods
-  private async findDriverByUserId(userId: string): Promise<Driver | null> {
-    return this.driverModel.findOne({ user_id: userId }).exec();
-  }
-
-  private async saveNewDriver(driverData: CreateDriverDto): Promise<Driver> {
-    const newDriver = new this.driverModel(driverData);
-    return newDriver.save();
-  }
-
-  private handleDuplicateDriver(): ApiResponse<null> {
-    return createResponse(
-      'DuplicatedRecord',
-      null,
-      'Driver with this user ID already exists'
-    );
-  }
-
   private handleDriverResponse(driver: Driver | null): ApiResponse<Driver> {
     if (!driver) {
       return createResponse('NotFound', null, 'Driver not found');
@@ -265,58 +330,12 @@ export class DriversService {
     return createResponse('OK', driver, 'Driver retrieved successfully');
   }
 
-  private async updateDriverDetails(
-    driver: Driver,
-    updateData: UpdateDriverDto
-  ): Promise<Driver> {
-    const { contact_phone, contact_email, first_name, last_name } = updateData;
-
-    if (contact_phone?.length) {
-      this.updateContactDetails(driver.contact_phone, contact_phone, 'number');
-    }
-
-    if (contact_email?.length) {
-      this.updateContactDetails(driver.contact_email, contact_email, 'email');
-    }
-
-    return this.driverModel
-      .findByIdAndUpdate(
-        driver._id,
-        {
-          contact_phone: driver.contact_phone,
-          contact_email: driver.contact_email,
-          first_name,
-          last_name
-        },
-        { new: true }
-      )
-      .exec();
-  }
-
-  private updateContactDetails(
-    existing: any[],
-    newData: any[],
-    key: string
-  ): void {
-    for (const newItem of newData) {
-      const existingIndex = existing.findIndex(
-        item => item[key] === newItem[key]
-      );
-      if (existingIndex !== -1) {
-        existing[existingIndex] = newItem;
-      } else {
-        existing.push(newItem);
-      }
-    }
-  }
-
   private async getRestaurantLocation(
     location: { lat: number; lng: number } | string
   ): Promise<any> {
     if (typeof location === 'string') {
-      const response =
-        await this.addressBookService.getAddressBookById(location);
-      return response.EC === 0 ? response.data.location : null;
+      const response = await this.addressRepository.findById(location);
+      return response ? response.location : null;
     }
     return location;
   }

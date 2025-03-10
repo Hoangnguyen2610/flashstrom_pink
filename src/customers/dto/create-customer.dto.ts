@@ -4,9 +4,33 @@ import {
   IsEnum,
   IsOptional,
   IsInt,
-  IsNumber
+  IsNumber,
+  IsObject,
+  ValidateNested
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { Enum_AppTheme } from 'src/types/Payload'; // Importing Enum_AppTheme from the schema
+
+class Avatar {
+  @IsString()
+  url: string;
+
+  @IsString()
+  key: string;
+}
+
+class AppPreferences {
+  @IsEnum(Enum_AppTheme)
+  theme: Enum_AppTheme;
+}
+
+class RestaurantHistory {
+  @IsString()
+  restaurant_id: string;
+
+  @IsNumber()
+  count: number;
+}
 
 export class CreateCustomerDto {
   @IsString()
@@ -23,34 +47,47 @@ export class CreateCustomerDto {
   address: string;
 
   @IsOptional()
-  avatar?: {
-    url: string;
-    key: string;
-  }; // Avatar object with url and key, optional
+  @IsObject()
+  @ValidateNested()
+  @Type(() => Avatar)
+  avatar?: Avatar;
 
   @IsOptional()
-  @IsString()
-  preferred_category: string; // Array of preferred food category IDs (FC_* format)
-
-  @IsOptional()
-  @IsString()
-  favorite_restaurants: string; // Array of favorite restaurant IDs (RES_* format)
-
   @IsArray()
-  @IsOptional()
   @IsString({ each: true })
-  favorite_items: string[]; // Array of favorite menu IDs (MENU_* format)
+  address_ids?: string[];
 
+  @IsOptional()
   @IsArray()
-  @IsOptional()
   @IsString({ each: true })
-  support_tickets: string[]; // Array of support ticket IDs (ST_* format)
+  preferred_category_ids?: string[];
 
-  @IsEnum(Enum_AppTheme)
   @IsOptional()
-  app_preferences: {
-    theme: Enum_AppTheme;
-  }; // User's app theme preference
+  @IsArray()
+  @IsString({ each: true })
+  favorite_restaurant_ids?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  favorite_items?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  support_tickets?: string[];
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => AppPreferences)
+  app_preferences?: AppPreferences;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RestaurantHistory)
+  restaurant_history?: RestaurantHistory[];
 
   @IsOptional()
   @IsInt()

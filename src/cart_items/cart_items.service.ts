@@ -1,152 +1,93 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CreateCartItemDto } from './dto/create-cart_item.dto';
 import { UpdateCartItemDto } from './dto/update-cart_item.dto';
-import { CartItem } from './cart_items.schema'; // Assuming the CartItem schema is defined like the one we discussed
-import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
-import { Customer } from 'src/customers/customer.schema';
-import { MenuItem } from 'src/menu_items/menu_items.schema';
-import { MenuItemVariant } from 'src/menu_item_variants/menu_item_variants.schema';
-import { Restaurant } from 'src/restaurants/restaurants.schema';
+import { CartItem } from './entities/cart_item.entity';
+import { createResponse } from 'src/utils/createResponse';
+import { CartItemsRepository } from './cart_items.repository';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { CustomersRepository } from 'src/customers/customers.repository';
+import { MenuItemsRepository } from 'src/menu_items/menu_items.repository';
+import { MenuItemVariantsRepository } from 'src/menu_item_variants/menu_item_variants.repository';
 
 @Injectable()
 export class CartItemsService {
   constructor(
-    @InjectModel('CartItem')
-    private readonly cartItemModel: Model<CartItem>,
-    @InjectModel('Restaurant')
-    private readonly restaurantModel: Model<Restaurant>,
-    @InjectModel('MenuItemVariant')
-    private readonly menuItemVariantModel: Model<MenuItemVariant>,
-    @InjectModel('Customer')
-    private readonly customerModel: Model<Customer>,
-    @InjectModel('MenuItem')
-    private readonly menuItemModel: Model<MenuItem>
+    private readonly cartItemsRepository: CartItemsRepository,
+    private readonly restaurantRepository: RestaurantsRepository,
+    private readonly customersRepository: CustomersRepository,
+    private readonly menuItemsRepository: MenuItemsRepository,
+    private readonly menuItemVariantsRepository: MenuItemVariantsRepository
   ) {}
 
   async create(createCartItemDto: CreateCartItemDto): Promise<any> {
-    const { variants, item_id, customer_id, ...cartItemData } =
-      createCartItemDto;
-    // Ensure required fields are present
-    console.log('check req', createCartItemDto);
+    try {
+      const { variants, item_id, customer_id } = createCartItemDto;
 
-    if (!item_id || !customer_id) {
-      return createResponse(
-        'MissingInput',
-        null,
-        'Item ID and Customer ID are required'
-      );
-    }
-
-    // Check if MenuItem exists
-    const menuItem = await this.menuItemModel.findById(item_id);
-    if (!menuItem) {
-      return createResponse(
-        'NotFound',
-        null,
-        `MenuItem with ID ${item_id} not found`
-      );
-    }
-
-    // Check if Customer exists
-    const customer = await this.customerModel.findById(customer_id);
-    if (!customer) {
-      return createResponse(
-        'NotFound',
-        null,
-        `Customer with ID ${customer_id} not found`
-      );
-    }
-
-    // Check if a cart item already exists for the same customer and item
-    const existingCartItem = await this.cartItemModel.findOne({
-      customer_id,
-      item_id
-    });
-
-    if (existingCartItem) {
-      // Iterate over existing variants and update their quantity or add new variants
-      for (let i = 0; i < variants.length; i++) {
-        const newVariant = variants[i];
-
-        // Find the existing variant in the cart item
-        const existingVariant = existingCartItem.variants.find(
-          variant => variant.variant_id === newVariant.variant_id
+      if (!item_id || !customer_id) {
+        return createResponse(
+          'MissingInput',
+          null,
+          'Item ID and Customer ID are required'
         );
-
-        if (existingVariant) {
-          // If the variant exists, update the quantity
-          existingVariant.quantity += +newVariant.quantity;
-        } else {
-          // If the variant doesn't exist, fetch variant details and add it to the cart
-          const variantDetails = await this.menuItemVariantModel.findById(
-            newVariant.variant_id
-          );
-          if (variantDetails) {
-            existingCartItem.variants.push({
-              variant_id: `${newVariant.variant_id}`,
-              variant_name: variantDetails.variant,
-              variant_price_at_time_of_addition: variantDetails.price, // Store price at time of addition
-              quantity: +newVariant.quantity
-            });
-          } else {
-            return createResponse(
-              'NotFound',
-              null,
-              `Variant with ID ${newVariant.variant_id} not found`
-            );
-          }
-        }
       }
 
-      // Update the modified timestamp
-      existingCartItem.updated_at = Math.floor(Date.now() / 1000);
+      // Validate menu item and customer
+      const [menuItem, customer] = await Promise.all([
+        this.menuItemsRepository.findById(item_id),
+        this.customersRepository.findById(customer_id)
+      ]);
 
-      // Save the updated cart item
-      await existingCartItem.save();
+      if (!menuItem || !customer) {
+        return createResponse(
+          'NotFound',
+          null,
+          'MenuItem or Customer not found'
+        );
+      }
+
+      // Check existing cart item
+      const existingCartItem = await this.cartItemsRepository.findOne({
+        customer_id,
+        item_id
+      });
+
+      if (existingCartItem) {
+        // Update existing cart item
+        const updatedVariants = await this.updateExistingCartItemVariants(
+          existingCartItem,
+          variants
+        );
+
+        const updated = await this.cartItemsRepository.update(
+          existingCartItem.id,
+          {
+            variants: updatedVariants,
+            updated_at: Math.floor(Date.now() / 1000),
+            item_id: existingCartItem.item_id,
+            customer_id: existingCartItem.customer_id,
+            restaurant_id: existingCartItem.restaurant_id
+          }
+        );
+
+        return createResponse('OK', updated, 'Cart item updated successfully');
+      }
+
+      // Create new cart item
+      const populatedVariants = await this.populateVariants(variants);
+      const newCartItem = await this.cartItemsRepository.create({
+        ...createCartItemDto,
+        variants: populatedVariants
+      });
 
       return createResponse(
         'OK',
-        existingCartItem,
-        'Cart item updated successfully'
+        newCartItem,
+        'Cart item created successfully'
       );
+    } catch (error) {
+      console.log('error', error);
+      return createResponse('ServerError', null, 'Failed to create cart item');
     }
-
-    // If no existing cart item, create a new one
-    const populatedVariants = await Promise.all(
-      variants.map(async variant => {
-        const variantDetails = await this.menuItemVariantModel.findById(
-          variant.variant_id
-        );
-        if (!variantDetails) {
-          return createResponse(
-            'NotFound',
-            null,
-            `Variant with ID ${variant.variant_id} not found`
-          );
-        }
-        return {
-          variant_id: variant.variant_id,
-          variant_name: variantDetails.variant, // Add variant name
-          variant_price_at_time_of_addition: variantDetails.price, // Add price
-          quantity: variant.quantity
-        };
-      })
-    );
-
-    // Create the cart item
-    const newCartItem = new this.cartItemModel({
-      ...cartItemData,
-      item_id,
-      customer_id,
-      variants: populatedVariants,
-      created_at: Math.floor(Date.now() / 1000),
-      updated_at: Math.floor(Date.now() / 1000)
-    });
-
-    await newCartItem.save();
-    return createResponse('OK', newCartItem, 'Cart item created successfully');
   }
 
   async update(id: string, updateCartItemDto: UpdateCartItemDto): Promise<any> {
@@ -155,7 +96,7 @@ export class CartItemsService {
     try {
       // Check if MenuItem exists
       if (item_id) {
-        const menuItem = await this.menuItemModel.findById(item_id);
+        const menuItem = await this.menuItemsRepository.findById(item_id);
         if (!menuItem) {
           return createResponse(
             'NotFound',
@@ -167,7 +108,7 @@ export class CartItemsService {
 
       // Check if Customer exists
       if (customer_id) {
-        const customer = await this.customerModel.findById(customer_id);
+        const customer = await this.customersRepository.findById(customer_id);
         if (!customer) {
           return createResponse(
             'NotFound',
@@ -181,9 +122,10 @@ export class CartItemsService {
         // Populate variants
         const populatedVariants = await Promise.all(
           variants.map(async variant => {
-            const variantDetails = await this.menuItemVariantModel.findById(
-              variant.variant_id
-            );
+            const variantDetails =
+              await this.menuItemVariantsRepository.findById(
+                variant.variant_id
+              );
             if (!variantDetails) {
               return createResponse(
                 'NotFound',
@@ -202,11 +144,14 @@ export class CartItemsService {
       console.log('check update data', updateData);
 
       // Update the cart item
-      const updatedCartItem = await this.cartItemModel.findByIdAndUpdate(
-        id,
-        { variants, item_id, customer_id, ...updateData },
-        { new: true }
-      );
+      const existingCartItem = await this.cartItemsRepository.findById(id);
+      const updatedCartItem = await this.cartItemsRepository.update(id, {
+        ...updateData,
+        updated_at: Math.floor(Date.now() / 1000),
+        item_id: existingCartItem.item_id,
+        customer_id: existingCartItem.customer_id,
+        variants: existingCartItem.variants
+      });
 
       if (!updatedCartItem) {
         return createResponse(
@@ -222,28 +167,28 @@ export class CartItemsService {
         'Cart item updated successfully'
       );
     } catch (error) {
+      console.log('error', error);
       return createResponse('ServerError', null, 'Failed to update cart item');
     }
   }
 
   async findAll(query: Record<string, any> = {}): Promise<any> {
-    const cartItems = await this.cartItemModel
-      .find()
-      // .populate('item_id')
-      .exec();
+    // Use the query parameter in the find operation
+    const cartItems = await this.cartItemsRepository.findAll(query);
 
     // Populate variant names for all cart items
     const populatedCartItems = await Promise.all(
       cartItems.map(async cartItem => {
         // Convert the cart item document to a plain object
-        const cartItemObj = cartItem.toObject();
+        const cartItemObj = cartItem;
 
         // Map over the variants and populate their names
         const populatedVariants = await Promise.all(
           cartItemObj.variants.map(async variant => {
-            const variantDetails = await this.menuItemVariantModel.findById(
-              variant.variant_id
-            );
+            const variantDetails =
+              await this.menuItemVariantsRepository.findById(
+                variant.variant_id
+              );
             return {
               ...variant,
               variant_name: variantDetails ? variantDetails.variant : 'Unknown'
@@ -271,68 +216,42 @@ export class CartItemsService {
     const finalResult = await Promise.all(
       transformedCartItems.map(async item => {
         // Fetch the item object using the item_id (which is the item reference)
-        const menuItem = await this.menuItemModel.findById(item.item);
-        // console.log('cehck here', item, 'and check here', menuItem);
+        const menuItem = await this.menuItemsRepository.findById(item.item);
 
         if (!menuItem) {
           return createResponse('NotFound', null, 'Menu item not found');
         }
 
         const itemObj = menuItem as { restaurant_id: string };
-        const restaurantDetails = await this.restaurantModel.findById(
+        const restaurantDetails = await this.restaurantRepository.findById(
           itemObj.restaurant_id
         );
 
         return {
           ...item,
           item: {
-            ...menuItem.toObject(), // Now spread the full item object here
+            ...menuItem, // Now spread the full item object here
             restaurantDetails // Add restaurantDetails inside the item object
           }
         };
       })
     );
 
-    return createResponse(
-      'OK',
-      finalResult, // Return the final result with restaurant details
-      'Cart items fetched successfully'
-    );
+    return createResponse('OK', finalResult, 'Cart items fetched successfully');
   }
 
   // Get a cart item by ID
   async findById(id: string): Promise<any> {
     try {
-      // Find the cart item by ID and populate restaurant and item
-      const cartItem = await this.cartItemModel
-        .findById(id)
-        .populate(
-          'restaurant_id', // Populate the 'restaurant_id'
-          '-promotions -contact_email -contact_phone -created_at -updated_at -description -images-gallery -specialize_in'
-        )
-        .populate('item_id', '-created_at -updated_at -restaurant_id -_id') // Populate the 'item_id'
-        .exec();
+      const cartItem = await this.cartItemsRepository.findById(id);
 
       if (!cartItem) {
         return createResponse('NotFound', null, 'Cart item not found');
       }
 
-      // Transform the cart item by renaming 'restaurant_id' to 'restaurant' and moving 'item_id' to 'item'
-      const { restaurant_id, item_id, ...rest } = cartItem.toObject(); // Extract restaurant_id and item_id
-
-      const transformedCartItem = {
-        ...rest,
-        restaurant: restaurant_id, // Rename restaurant_id to restaurant
-        item: item_id, // Move item_id to item
-        item_id: cartItem._id // Add the _id of the cart item as item_id at the top level
-      };
-
-      return createResponse(
-        'OK',
-        transformedCartItem,
-        'Fetched cart item successfully'
-      );
+      return createResponse('OK', cartItem, 'Fetched cart item successfully');
     } catch (error) {
+      console.log('error', error);
       return createResponse(
         'ServerError',
         null,
@@ -343,7 +262,7 @@ export class CartItemsService {
 
   async findOne(query: Record<string, any>): Promise<any> {
     try {
-      const cartItem = await this.cartItemModel.findOne(query).exec();
+      const cartItem = await this.cartItemsRepository.findOne(query);
 
       if (!cartItem) {
         return createResponse('NotFound', null, 'Cart item not found');
@@ -351,6 +270,7 @@ export class CartItemsService {
 
       return createResponse('OK', cartItem, 'Fetched cart item successfully');
     } catch (error) {
+      console.log('error', error);
       return createResponse(
         'ServerError',
         null,
@@ -359,13 +279,9 @@ export class CartItemsService {
     }
   }
 
-  // Update a cart item by ID
-
   // Delete a cart item by ID
   async remove(id: string): Promise<any> {
-    const deletedCartItem = await this.cartItemModel
-      .findByIdAndDelete(id)
-      .exec();
+    const deletedCartItem = await this.cartItemsRepository.remove(id);
 
     if (!deletedCartItem) {
       return createResponse('NotFound', null, 'Cart item not found');
@@ -374,11 +290,57 @@ export class CartItemsService {
     try {
       return createResponse('OK', null, 'Cart item deleted successfully');
     } catch (error) {
+      console.log('error', error);
       return createResponse(
         'ServerError',
         null,
         'An error occurred while deleting the cart item'
       );
     }
+  }
+
+  private async populateVariants(variants: any[]) {
+    return Promise.all(
+      variants.map(async variant => {
+        const variantDetails = await this.menuItemVariantsRepository.findById(
+          variant.variant_id
+        );
+        return {
+          variant_id: variant.variant_id,
+          variant_name: variantDetails.variant,
+          variant_price_at_time_of_addition: variantDetails.price,
+          quantity: variant.quantity
+        };
+      })
+    );
+  }
+
+  private async updateExistingCartItemVariants(
+    existingCartItem: CartItem,
+    newVariants: any[]
+  ) {
+    const updatedVariants = [...existingCartItem.variants];
+
+    for (const newVariant of newVariants) {
+      const existingVariantIndex = updatedVariants.findIndex(
+        v => v.variant_id === newVariant.variant_id
+      );
+
+      if (existingVariantIndex > -1) {
+        updatedVariants[existingVariantIndex].quantity += newVariant.quantity;
+      } else {
+        const variantDetails = await this.menuItemVariantsRepository.findById(
+          newVariant.variant_id
+        );
+        updatedVariants.push({
+          variant_id: newVariant.variant_id,
+          variant_name: variantDetails.variant,
+          variant_price_at_time_of_addition: variantDetails.price,
+          quantity: newVariant.quantity
+        });
+      }
+    }
+
+    return updatedVariants;
   }
 }

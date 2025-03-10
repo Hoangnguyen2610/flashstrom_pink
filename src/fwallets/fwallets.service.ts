@@ -1,131 +1,106 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CreateFWalletDto } from './dto/create-fwallet.dto';
 import { UpdateFwalletDto } from './dto/update-fwallet.dto';
-import { FWallet } from './fwallets.schema'; // Assuming an FWallet schema similar to Driver schema
-import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
+import { FWalletsRepository } from './fwallets.repository';
+import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
+import { FWallet } from './entities/fwallet.entity';
 
 @Injectable()
 export class FWalletService {
-  constructor(
-    @InjectModel('FWallet') private readonly fWalletModel: Model<FWallet> // Injecting FWallet model
-  ) {}
+  constructor(private readonly fWalletsRepository: FWalletsRepository) {}
 
-  // Create a new FWallet
   async create(
     createFWalletDto: CreateFWalletDto
   ): Promise<ApiResponse<FWallet>> {
     try {
-      const existingWallet = await this.findWalletByUserId(
+      const existingWallet = await this.fWalletsRepository.findByUserId(
         createFWalletDto.user_id
       );
+
       if (existingWallet) {
-        return this.handleDuplicateWallet();
+        return createResponse(
+          'DuplicatedRecord',
+          null,
+          'Wallet for this user already exists'
+        );
       }
 
-      const newWallet = await this.saveNewWallet(createFWalletDto);
+      const newWallet = await this.fWalletsRepository.create(createFWalletDto);
       return createResponse('OK', newWallet, 'Wallet created successfully');
     } catch (error) {
-      return this.handleError('Error creating wallet:', error);
+      console.error('Error creating wallet:', error);
+      return createResponse('ServerError', null, 'Error creating wallet');
     }
   }
 
-  // Get all FWallets
   async findAll(): Promise<ApiResponse<FWallet[]>> {
     try {
-      const wallets = await this.fWalletModel.find().exec();
+      const wallets = await this.fWalletsRepository.findAll();
       return createResponse('OK', wallets, 'Fetched all wallets');
     } catch (error) {
-      return this.handleError('Error fetching wallets:', error);
+      console.error('Error fetching wallets:', error);
+      return createResponse('ServerError', null, 'Error fetching wallets');
     }
   }
 
-  // Get an FWallet by ID
   async findFWalletById(id: string): Promise<ApiResponse<FWallet>> {
     try {
-      const wallet = await this.fWalletModel.findById(id).exec();
-      return this.handleWalletResponse(wallet);
+      const wallet = await this.fWalletsRepository.findById(id);
+      if (!wallet) {
+        return createResponse('NotFound', null, 'Wallet not found');
+      }
+      return createResponse('OK', wallet, 'Wallet retrieved successfully');
     } catch (error) {
-      return this.handleError('Error fetching wallet:', error);
+      console.error('Error fetching wallet:', error);
+      return createResponse('ServerError', null, 'Error fetching wallet');
     }
   }
 
-  // Find one wallet by dynamic field and value
   async findOne(conditions: object): Promise<ApiResponse<FWallet>> {
     try {
-      const wallet = await this.fWalletModel.findOne(conditions).exec();
-      return this.handleWalletResponse(wallet);
+      const wallet = await this.fWalletsRepository.findByCondition(conditions);
+      if (!wallet) {
+        return createResponse('NotFound', null, 'Wallet not found');
+      }
+      return createResponse('OK', wallet, 'Wallet retrieved successfully');
     } catch (error) {
-      return this.handleError('Error fetching wallet:', error);
+      console.error('Error fetching wallet:', error);
+      return createResponse('ServerError', null, 'Error fetching wallet');
     }
   }
 
-  // Update an FWallet by ID
   async update(
     id: string,
     updateFWalletDto: UpdateFwalletDto
   ): Promise<ApiResponse<FWallet>> {
     try {
-      const updatedWallet = await this.fWalletModel
-        .findByIdAndUpdate(id, updateFWalletDto, { new: true })
-        .exec();
-      return this.handleWalletResponse(updatedWallet);
+      const wallet = await this.fWalletsRepository.findById(id);
+      if (!wallet) {
+        return createResponse('NotFound', null, 'Wallet not found');
+      }
+
+      const updatedWallet = await this.fWalletsRepository.update(
+        id,
+        updateFWalletDto
+      );
+      return createResponse('OK', updatedWallet, 'Wallet updated successfully');
     } catch (error) {
-      return this.handleError('Error updating wallet:', error);
+      console.error('Error updating wallet:', error);
+      return createResponse('ServerError', null, 'Error updating wallet');
     }
   }
 
-  // Delete an FWallet by ID
   async remove(id: string): Promise<ApiResponse<null>> {
     try {
-      const deletedWallet = await this.fWalletModel
-        .findByIdAndDelete(id)
-        .exec();
-      if (!deletedWallet) {
+      const result = await this.fWalletsRepository.delete(id);
+      if (!result) {
         return createResponse('NotFound', null, 'Wallet not found');
       }
       return createResponse('OK', null, 'Wallet deleted successfully');
     } catch (error) {
-      return this.handleError('Error deleting wallet:', error);
+      console.error('Error deleting wallet:', error);
+      return createResponse('ServerError', null, 'Error deleting wallet');
     }
-  }
-
-  // Private helper methods
-  private async findWalletByUserId(userId: string): Promise<FWallet | null> {
-    return this.fWalletModel.findOne({ user_id: userId }).exec();
-  }
-
-  private async saveNewWallet(walletData: CreateFWalletDto): Promise<FWallet> {
-    const newWallet = new this.fWalletModel({
-      ...walletData,
-      balance: +walletData.balance
-    });
-    return newWallet.save();
-  }
-
-  private handleDuplicateWallet(): ApiResponse<null> {
-    return createResponse(
-      'DuplicatedRecord',
-      null,
-      'Wallet for this user already exists'
-    );
-  }
-
-  private handleWalletResponse(wallet: FWallet | null): ApiResponse<FWallet> {
-    if (!wallet) {
-      return createResponse('NotFound', null, 'Wallet not found');
-    }
-    return createResponse('OK', wallet, 'Wallet retrieved successfully');
-  }
-
-  private handleError(message: string, error: any): ApiResponse<null> {
-    console.error(message, error);
-    return createResponse(
-      'ServerError',
-      null,
-      'An error occurred while processing your request'
-    );
   }
 }

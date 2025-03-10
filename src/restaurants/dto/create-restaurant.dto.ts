@@ -1,4 +1,85 @@
-import { IsString, IsArray, IsObject, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsObject,
+  IsBoolean,
+  IsEmail,
+  IsNumber,
+  ValidateNested
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+class ContactEmail {
+  @IsString()
+  title: string;
+
+  @IsBoolean()
+  is_default: boolean;
+
+  @IsEmail()
+  email: string;
+}
+
+class ContactPhone {
+  @IsString()
+  title: string;
+
+  @IsString()
+  number: string;
+
+  @IsBoolean()
+  is_default: boolean;
+}
+
+class Status {
+  @IsBoolean()
+  is_open: boolean;
+
+  @IsBoolean()
+  is_active: boolean;
+
+  @IsBoolean()
+  is_accepted_orders: boolean;
+}
+
+class OpeningHours {
+  @IsNumber()
+  from: number;
+
+  @IsNumber()
+  to: number;
+}
+
+class DailyHours {
+  @ValidateNested()
+  @Type(() => OpeningHours)
+  mon: OpeningHours;
+
+  @ValidateNested()
+  @Type(() => OpeningHours)
+  tue: OpeningHours;
+
+  @ValidateNested()
+  @Type(() => OpeningHours)
+  wed: OpeningHours;
+
+  @ValidateNested()
+  @Type(() => OpeningHours)
+  thu: OpeningHours;
+
+  @ValidateNested()
+  @Type(() => OpeningHours)
+  fri: OpeningHours;
+
+  @ValidateNested()
+  @Type(() => OpeningHours)
+  sat: OpeningHours;
+
+  @ValidateNested()
+  @Type(() => OpeningHours)
+  sun: OpeningHours;
+}
 
 export class CreateRestaurantDto {
   @IsString()
@@ -8,50 +89,55 @@ export class CreateRestaurantDto {
   owner_name: string;
 
   @IsString()
-  address: string;
+  address_id: string;
 
   @IsString()
   restaurant_name: string;
 
   @IsOptional()
   @IsString()
-  description: string;
-
-  @IsOptional()
-  @IsArray()
-  promotions: string[];
+  description?: string;
 
   @IsArray()
-  contact_email: { title: string; is_default: boolean; email: string }[];
+  @ValidateNested({ each: true })
+  @Type(() => ContactEmail)
+  contact_email: ContactEmail[];
 
   @IsArray()
-  contact_phone: { title: string; number: string; is_default: boolean }[];
+  @ValidateNested({ each: true })
+  @Type(() => ContactPhone)
+  contact_phone: ContactPhone[];
 
   @IsOptional()
   @IsObject()
-  avatar: { url: string; key: string };
+  avatar?: { url: string; key: string };
 
   @IsOptional()
   @IsArray()
-  images_gallery: string[];
+  images_gallery?: string[];
 
-  @IsOptional()
   @IsObject()
-  status: { is_open: boolean; is_active: boolean; is_accepted_orders: boolean };
+  @ValidateNested()
+  @Type(() => Status)
+  status: Status;
 
   @IsOptional()
   @IsArray()
-  specialize_in: string[];
+  promotions?: string[];
 
   @IsOptional()
   @IsObject()
-  opening_hours: {
-    mon: { from: number; to: number };
-    tue: { from: number; to: number };
-    wed: { from: number; to: number };
-    thu: { from: number; to: number };
-    fri: { from: number; to: number };
-    sat: { from: number; to: number };
-    sun: { from: number; to: number };
+  ratings?: {
+    average_rating: number;
+    review_count: number;
   };
+
+  @IsOptional()
+  @IsArray()
+  food_category_ids?: string[];
+
+  @IsObject()
+  @ValidateNested()
+  @Type(() => DailyHours)
+  opening_hours: DailyHours;
 }

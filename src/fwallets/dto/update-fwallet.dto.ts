@@ -5,21 +5,25 @@ import { IsNumber, IsOptional, IsString } from 'class-validator';
 export class UpdateFwalletDto extends PartialType(CreateFWalletDto) {
   @IsOptional()
   @IsNumber()
-  readonly balance?: number; // Optional: update wallet balance
+  balance?: number;
 
   @IsOptional()
   @IsString()
-  readonly email: string; // email
+  email?: string;
 
   @IsOptional()
   @IsString()
-  readonly password: string; // password
+  password?: string;
 
   @IsOptional()
   @IsString()
-  readonly first_name?: string; // Optional: update first name
+  first_name?: string;
 
   @IsOptional()
   @IsString()
-  readonly last_name?: string; // Optional: update last name
+  last_name?: string;
+
+  @IsOptional()
+  @IsString()
+  user_id?: string;
 }

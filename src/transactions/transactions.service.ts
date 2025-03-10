@@ -1,21 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
-import { Transaction } from './transactions.schema';
+import { Transaction } from './entities/transaction.entity';
 import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
-import { User } from 'src/user/user.schema';
-import { FWallet } from 'src/fwallets/fwallets.schema';
+import { UserRepository } from 'src/users/users.repository';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { TransactionsRepository } from './transactions.repository';
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 
 @Injectable()
 export class TransactionService {
   constructor(
-    @InjectModel('Transaction')
-    private readonly transactionModel: Model<Transaction>,
-    @InjectModel('User') private readonly userModel: Model<User>,
-    @InjectModel('FWallet') private readonly fWalletModel: Model<FWallet>
+    private readonly transactionsRepository: TransactionsRepository,
+    private readonly userRepository: UserRepository,
+    private readonly fWalletsRepository: FWalletsRepository
   ) {}
 
   async create(
@@ -32,9 +31,7 @@ export class TransactionService {
         createTransactionDto;
 
       if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
-        const sourceWallet = await this.fWalletModel
-          .findOne({ user_id: source })
-          .exec();
+        const sourceWallet = await this.fWalletsRepository.findByUserId(source);
         await this.handleSourceWalletTransaction(sourceWallet, amount);
       }
 
@@ -43,7 +40,7 @@ export class TransactionService {
       }
 
       const newTransaction =
-        await this.saveNewTransaction(createTransactionDto);
+        await this.transactionsRepository.create(createTransactionDto);
       return createResponse(
         'OK',
         newTransaction,
@@ -56,7 +53,7 @@ export class TransactionService {
 
   async findAll(): Promise<ApiResponse<Transaction[]>> {
     try {
-      const transactions = await this.transactionModel.find().exec();
+      const transactions = await this.transactionsRepository.findAll();
       return createResponse('OK', transactions, 'Fetched all transactions');
     } catch (error) {
       return this.handleError('Error fetching transactions:', error);
@@ -65,7 +62,7 @@ export class TransactionService {
 
   async findTransactionById(id: string): Promise<ApiResponse<Transaction>> {
     try {
-      const transaction = await this.transactionModel.findById(id).exec();
+      const transaction = await this.transactionsRepository.findById(id);
       return this.handleTransactionResponse(transaction);
     } catch (error) {
       return this.handleError('Error fetching transaction:', error);
@@ -74,9 +71,8 @@ export class TransactionService {
 
   async findOne(conditions: object): Promise<ApiResponse<Transaction>> {
     try {
-      const transaction = await this.transactionModel
-        .findOne(conditions)
-        .exec();
+      const transaction =
+        await this.transactionsRepository.findByCondition(conditions);
       return this.handleTransactionResponse(transaction);
     } catch (error) {
       return this.handleError('Error fetching transaction:', error);
@@ -88,9 +84,10 @@ export class TransactionService {
     updateTransactionDto: UpdateTransactionDto
   ): Promise<ApiResponse<Transaction>> {
     try {
-      const updatedTransaction = await this.transactionModel
-        .findByIdAndUpdate(id, updateTransactionDto, { new: true })
-        .exec();
+      const updatedTransaction = await this.transactionsRepository.update(
+        id,
+        updateTransactionDto
+      );
       return this.handleTransactionResponse(updatedTransaction);
     } catch (error) {
       return this.handleError('Error updating transaction:', error);
@@ -99,10 +96,8 @@ export class TransactionService {
 
   async remove(id: string): Promise<ApiResponse<null>> {
     try {
-      const deletedTransaction = await this.transactionModel
-        .findByIdAndDelete(id)
-        .exec();
-      if (!deletedTransaction) {
+      const result = await this.transactionsRepository.remove(id);
+      if (!result) {
         return createResponse('NotFound', null, 'Transaction not found');
       }
       return createResponse('OK', null, 'Transaction deleted successfully');
@@ -117,15 +112,13 @@ export class TransactionService {
   ): Promise<true | ApiResponse<null>> {
     const { user_id, transaction_type, amount, source } = createTransactionDto;
 
-    const user = await this.userModel.findById(user_id).exec();
-    if (!user) {
+    const userResponse = await this.userRepository.findById(user_id);
+    if (!userResponse) {
       return createResponse('NotFound', null, 'User not found');
     }
 
     if (transaction_type === 'WITHDRAW' || transaction_type === 'PURCHASE') {
-      const sourceWallet = await this.fWalletModel
-        .findOne({ user_id: source })
-        .exec();
+      const sourceWallet = await this.fWalletsRepository.findByUserId(source);
       if (!sourceWallet) {
         return createResponse('NotFound', null, 'Source wallet not found');
       }
@@ -147,40 +140,32 @@ export class TransactionService {
     amount: number
   ): Promise<void> {
     sourceWallet.balance -= +amount;
-    await sourceWallet.save();
+    await this.fWalletsRepository.update(sourceWallet.id, {
+      balance: sourceWallet.balance
+    });
   }
 
   private async handleDestinationWalletTransaction(
     destination: string,
     amount: number
   ): Promise<void> {
-    const destinationWallet = await this.fWalletModel
-      .findById(destination)
-      .exec();
+    const destinationWallet =
+      await this.fWalletsRepository.findByUserId(destination);
 
     if (destinationWallet) {
       destinationWallet.balance += +amount;
-      await destinationWallet.save();
+      await this.fWalletsRepository.update(destinationWallet.id, {
+        balance: destinationWallet.balance
+      });
     } else {
-      const destinationUser = await this.userModel.findById(destination).exec();
+      const destinationUser = await this.userRepository.findById(destination);
       if (destinationUser) {
-        destinationUser.temporary_wallet_balance =
-          (destinationUser.temporary_wallet_balance || 0) + +amount;
-        await destinationUser.save();
+        destinationUser.balance = (destinationUser.balance || 0) + +amount;
+        await this.userRepository.update(destination, {
+          balance: destinationUser.balance
+        });
       }
     }
-  }
-
-  private async saveNewTransaction(
-    transactionData: CreateTransactionDto
-  ): Promise<Transaction> {
-    const newTransaction = new this.transactionModel({
-      ...transactionData,
-      amount: +transactionData.amount,
-      balance_after: +transactionData.balance_after,
-      status: transactionData.status || 'PENDING'
-    });
-    return newTransaction.save();
   }
 
   private handleTransactionResponse(

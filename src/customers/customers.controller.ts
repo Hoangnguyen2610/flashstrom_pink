@@ -111,15 +111,14 @@ export class CustomersController {
   @Patch('/address/:id/:addressbookId')
   updateAddress(
     @Param('id') customerId: string,
-    @Param('addressbookId') addressbookId: string,
-    @Body() updateCustomerDto: UpdateCustomerDto
+    @Param('addressbookId') addressbookId: string
   ) {
-    return this.addressBookService.updateAddressBook(
-      addressbookId,
-      updateCustomerDto,
-      customerId
+    return this.addressBookService.toggleCustomerAddress(
+      customerId,
+      addressbookId
     );
   }
+
   @Patch(':id')
   update(
     @Param('id') id: string,

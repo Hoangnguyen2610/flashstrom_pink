@@ -20,4 +20,8 @@ export class UpdateCartItemDto extends PartialType(CreateCartItemDto) {
   @IsString()
   @IsOptional()
   restaurant_id: string;
+
+  @IsNumber()
+  @IsOptional()
+  updated_at: number;
 }

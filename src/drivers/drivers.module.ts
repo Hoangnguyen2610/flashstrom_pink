@@ -1,43 +1,32 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { DriversService } from './drivers.service';
 import { DriversController } from './drivers.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { DriverSchema } from './drivers.schema';
-import { UserSchema } from 'src/user/user.schema';
 import { DriversGateway } from './drivers.gateway';
-import { AddressBookSchema } from 'src/address_book/address_book.schema';
-import { AddressBookService } from 'src/address_book/address_book.service';
-import { AddressBook } from 'src/address_book/address_book.module';
-import { CustomerSchema } from 'src/customers/customer.schema';
-import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
-import { RestaurantsModule } from 'src/restaurants/restaurants.module';
-import { OrdersModule } from 'src/orders/orders.module';
-import { OrdersGateway } from 'src/orders/orders.gateway';
-import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
-import { DriverProgressStagesModule } from 'src/driver_progress_stages/driver_progress_stages.module';
+import { Driver } from './entities/driver.entity';
+import { DriversRepository } from './drivers.repository';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { RestaurantsModule } from '../restaurants/restaurants.module';
+import { OrdersModule } from '../orders/orders.module';
+import { DriverProgressStagesModule } from '../driver_progress_stages/driver_progress_stages.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { AddressBook } from 'src/address_book/entities/address_book.entity';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: 'Driver', schema: DriverSchema },
-      { name: 'User', schema: UserSchema },
-      { name: 'AddressBook', schema: AddressBookSchema },
-      { name: 'Restaurant', schema: RestaurantSchema },
-      { name: 'Customer', schema: CustomerSchema }
-    ]),
-    AddressBook,
+    TypeOrmModule.forFeature([Driver, AddressBook]),
     forwardRef(() => RestaurantsModule),
     forwardRef(() => OrdersModule),
-    DriverProgressStagesModule
+    DriverProgressStagesModule,
+    EventEmitterModule.forRoot()
   ],
   controllers: [DriversController],
   providers: [
     DriversService,
     DriversGateway,
-    AddressBookService,
-    RestaurantsGateway,
-    OrdersGateway
+    DriversRepository,
+    AddressBookRepository
   ],
-  exports: [DriversService, DriversGateway]
+  exports: [DriversService, DriversRepository]
 })
 export class DriversModule {}

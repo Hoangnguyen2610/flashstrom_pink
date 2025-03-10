@@ -42,3 +42,17 @@ export class CreateMenuItemVariantDto {
   @IsNumber()
   discount_rate: number; // Discount rate in percentage (0-100)
 }
+
+export class MenuItemVariantDto {
+  @IsOptional()
+  @IsNumber()
+  price: number;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  variant?: string;
+}

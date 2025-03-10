@@ -7,9 +7,11 @@ import {
   IsOptional,
   IsObject,
   IsNumber,
-  IsUUID
+  ValidateNested
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { DiscountDto } from 'src/discounts/discount.dto'; // Import the DiscountDto
+import { MenuItemVariantDto } from 'src/menu_item_variants/dto/create-menu_item_variant.dto';
 
 export class UpdateMenuItemDto extends PartialType(CreateMenuItemDto) {
   @IsOptional()
@@ -51,12 +53,9 @@ export class UpdateMenuItemDto extends PartialType(CreateMenuItemDto) {
 
   @IsOptional()
   @IsArray()
-  @IsObject({ each: true }) // Expecting array of objects for variants
-  variants: {
-    variant_id: string; // Variant ID reference
-    price?: number; // Price of the variant
-    description?: string; // Optional description for the variant
-  }[]; // Array of variant objects
+  @ValidateNested({ each: true })
+  @Type(() => MenuItemVariantDto)
+  variants?: MenuItemVariantDto[];
 
   @IsOptional()
   @IsObject()

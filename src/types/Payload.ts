@@ -57,8 +57,8 @@ export type DriverPayload = BasePayload & {
 export type RestaurantOwnerPayload = BasePayload & {
   owner_id: string;
   restaurant_id: string;
+  address_id: string;
   owner_name: string;
-  address: string;
   restaurant_name: string;
   contact_email: { title: string; is_default: boolean; email: string }[];
   contact_phone: { number: string; is_default: boolean; title: string }[];

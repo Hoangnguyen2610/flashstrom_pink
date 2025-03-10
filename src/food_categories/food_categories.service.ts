@@ -1,56 +1,83 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CreateFoodCategoryDto } from './dto/create-food_category.dto';
 import { UpdateFoodCategoryDto } from './dto/update-food_category.dto';
-import { FoodCategory } from './food_categories.schema';
+import { FoodCategoriesRepository } from './food_categories.repository';
 import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
+import { FoodCategory } from './entities/food_category.entity';
 
 @Injectable()
 export class FoodCategoriesService {
   constructor(
-    @InjectModel('FoodCategory')
-    private readonly foodCategoryModel: Model<FoodCategory>
+    private readonly foodCategoriesRepository: FoodCategoriesRepository
   ) {}
 
   async create(
     createFoodCategoryDto: CreateFoodCategoryDto
   ): Promise<ApiResponse<FoodCategory>> {
     try {
-      const existingCategory = await this.findCategoryByName(
+      const existingCategory = await this.foodCategoriesRepository.findByName(
         createFoodCategoryDto.name
       );
+
       if (existingCategory) {
-        return this.handleDuplicateCategory();
+        return createResponse(
+          'DuplicatedRecord',
+          null,
+          'Food category with this name already exists'
+        );
       }
 
-      const newCategory = await this.saveNewCategory(createFoodCategoryDto);
+      const newCategory = await this.foodCategoriesRepository.create(
+        createFoodCategoryDto
+      );
       return createResponse(
         'OK',
         newCategory,
         'Food category created successfully'
       );
     } catch (error) {
-      return this.handleError('Error creating food category:', error);
+      console.error('Error creating food category:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error creating food category'
+      );
     }
   }
 
   async findAll(): Promise<ApiResponse<FoodCategory[]>> {
     try {
-      const categories = await this.foodCategoryModel.find().exec();
+      const categories = await this.foodCategoriesRepository.findAll();
       return createResponse('OK', categories, 'Fetched all food categories');
     } catch (error) {
-      return this.handleError('Error fetching food categories:', error);
+      console.error('Error fetching food categories:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching food categories'
+      );
     }
   }
 
   async findOne(id: string): Promise<ApiResponse<FoodCategory>> {
     try {
-      const category = await this.foodCategoryModel.findById(id).exec();
-      return this.handleCategoryResponse(category);
+      const category = await this.foodCategoriesRepository.findById(id);
+      if (!category) {
+        return createResponse('NotFound', null, 'Food category not found');
+      }
+      return createResponse(
+        'OK',
+        category,
+        'Food category retrieved successfully'
+      );
     } catch (error) {
-      return this.handleError('Error fetching food category:', error);
+      console.error('Error fetching food category:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching food category'
+      );
     }
   }
 
@@ -59,72 +86,44 @@ export class FoodCategoriesService {
     updateFoodCategoryDto: UpdateFoodCategoryDto
   ): Promise<ApiResponse<FoodCategory>> {
     try {
-      const updatedCategory = await this.foodCategoryModel
-        .findByIdAndUpdate(id, updateFoodCategoryDto, { new: true })
-        .exec();
-      return this.handleCategoryResponse(updatedCategory);
+      const category = await this.foodCategoriesRepository.findById(id);
+      if (!category) {
+        return createResponse('NotFound', null, 'Food category not found');
+      }
+
+      const updatedCategory = await this.foodCategoriesRepository.update(
+        id,
+        updateFoodCategoryDto
+      );
+      return createResponse(
+        'OK',
+        updatedCategory,
+        'Food category updated successfully'
+      );
     } catch (error) {
-      return this.handleError('Error updating food category:', error);
+      console.error('Error updating food category:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error updating food category'
+      );
     }
   }
 
   async remove(id: string): Promise<ApiResponse<null>> {
     try {
-      const deletedCategory = await this.foodCategoryModel
-        .findByIdAndDelete(id)
-        .exec();
-      if (!deletedCategory) {
+      const result = await this.foodCategoriesRepository.delete(id);
+      if (!result) {
         return createResponse('NotFound', null, 'Food category not found');
       }
       return createResponse('OK', null, 'Food category deleted successfully');
     } catch (error) {
-      return this.handleError('Error deleting food category:', error);
+      console.error('Error deleting food category:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error deleting food category'
+      );
     }
-  }
-
-  // Private helper methods
-  private async findCategoryByName(name: string): Promise<FoodCategory | null> {
-    return this.foodCategoryModel.findOne({ name }).exec();
-  }
-
-  private async saveNewCategory(
-    categoryData: CreateFoodCategoryDto
-  ): Promise<FoodCategory> {
-    const newCategory = new this.foodCategoryModel({
-      ...categoryData,
-      created_at: new Date().getTime(),
-      updated_at: new Date().getTime()
-    });
-    return newCategory.save();
-  }
-
-  private handleDuplicateCategory(): ApiResponse<null> {
-    return createResponse(
-      'DuplicatedRecord',
-      null,
-      'Food category with this name already exists'
-    );
-  }
-
-  private handleCategoryResponse(
-    category: FoodCategory | null
-  ): ApiResponse<FoodCategory> {
-    if (!category) {
-      return createResponse('NotFound', null, 'Food category not found');
-    }
-    return createResponse(
-      'OK',
-      category,
-      'Food category retrieved successfully'
-    );
-  }
-
-  private handleError(message: string, error: any): ApiResponse<null> {
-    console.error(message, error);
-    return createResponse(
-      'ServerError',
-      null,
-      'An error occurred while processing your request'
-    );
   }
 }

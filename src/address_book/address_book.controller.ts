@@ -19,17 +19,17 @@ export class AddressBookController {
   async createAddressBook(
     @Body() createAddressBookDto: CreateAddressBookDto // Use the DTO here
   ) {
-    return this.addressBookService.createAddressBook(createAddressBookDto);
+    return this.addressBookService.create(createAddressBookDto);
   }
 
   @Get()
   async getAllAddressBooks() {
-    return this.addressBookService.getAllAddressBooks();
+    return this.addressBookService.findAll();
   }
 
   @Get(':id')
   async getAddressBookById(@Param('id') id: string) {
-    return this.addressBookService.getAddressBookById(id);
+    return this.addressBookService.findOne(id);
   }
 
   // Update an address book entry by ID
@@ -45,15 +45,12 @@ export class AddressBookController {
       updateAddressBookDto
     );
 
-    return this.addressBookService.updateAddressBook(
-      addressBookId,
-      updateAddressBookDto
-    );
+    return this.addressBookService.update(addressBookId, updateAddressBookDto);
   }
 
   // Delete an address book entry by ID
   @Delete(':id')
   async deleteAddressBook(@Param('id') id: string) {
-    return this.addressBookService.deleteAddressBook(id);
+    return this.addressBookService.remove(id);
   }
 }

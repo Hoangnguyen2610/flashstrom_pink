@@ -13,7 +13,7 @@ export enum DiscountType {
   PERCENTAGE = 'PERCENTAGE',
 
   FIXED = 'FIXED',
-  BOGO = 'BOGO',
+  BOGO = 'BOGO'
 }
 
 // Add BOGO details interface
@@ -21,7 +21,6 @@ interface BogoDetails {
   buy_quantity: number;
   get_quantity: number;
   max_redemptions?: number;
-
 }
 
 export class CreatePromotionDto {

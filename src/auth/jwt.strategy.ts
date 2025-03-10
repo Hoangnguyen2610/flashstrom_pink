@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import { JwtService } from '@nestjs/jwt'; // Ensure JwtService is imported
-import { UserService } from 'src/user/user.service'; // If you need UserService for user validation
+import { UsersService } from 'src/users/users.service'; // If you need UserService for user validation
 import * as dotenv from 'dotenv';
 dotenv.config();
 
@@ -10,7 +10,7 @@ dotenv.config();
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly jwtService: JwtService, // JwtService injected here
-    private readonly userService: UserService // If you need user validation
+    private readonly usersService: UsersService // If you need user validation
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -20,7 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     // You can add user validation logic if needed
-    const user = await this.userService.getUserById(payload.userId); // Example of user validation
+    const user = await this.usersService.findById(payload.userId); // Example of user validation
     return user;
   }
 }

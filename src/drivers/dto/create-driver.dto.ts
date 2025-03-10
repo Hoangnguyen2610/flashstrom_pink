@@ -1,7 +1,5 @@
 import {
   IsString,
-  IsEmail,
-  IsEnum,
   IsArray,
   IsBoolean,
   IsOptional,
@@ -11,67 +9,63 @@ import {
 
 export class CreateDriverDto {
   @IsString()
-  readonly user_id: string; // Driver's first name
+  user_id: string;
 
   @IsString()
-  readonly first_name: string; // Driver's first name
+  first_name: string;
 
   @IsString()
-  readonly last_name: string; // Driver's last name
+  last_name: string;
 
   @IsArray()
-  readonly contact_email: {
+  contact_email: {
     title: string;
     is_default: boolean;
     email: string;
-  }[]; // Array of contact emails
+  }[];
 
   @IsArray()
-  readonly contact_phone: {
+  contact_phone: {
     title: string;
     number: string;
     is_default: boolean;
-  }[]; // Array of contact phone numbers
+  }[];
 
   @IsObject()
-  readonly vehicle: {
+  vehicle: {
     license_plate: string;
     model: string;
     color: string;
-  }; // Vehicle information
+  };
 
   @IsObject()
-  readonly current_location: {
+  current_location: {
     lat: number;
     lng: number;
-  }; // Current location with latitude and longitude
+  };
 
   @IsArray()
-  readonly current_order_id: string[]; // Array of order IDs (max 3 orders)
-
-  @IsNumber()
-  readonly created_at: number; // Unix timestamp for creation time
-
-  @IsNumber()
-  readonly updated_at: number; // Unix timestamp for last update time
-
-  @IsNumber()
-  readonly last_login: number; // Unix timestamp for last login time
-
-  @IsObject()
-  @IsOptional()
-  readonly avatar: { key: string; url: string }; // Optional avatar with key and url
+  current_order_id: string[];
 
   @IsBoolean()
-  readonly available_for_work: boolean; // Indicates if the driver is available for work
+  available_for_work: boolean;
 
   @IsBoolean()
-  readonly is_on_delivery: boolean; // Indicates if the driver is currently on a delivery
+  is_on_delivery: boolean;
+
+  @IsNumber()
+  active_points: number;
 
   @IsObject()
-  @IsOptional()
-  readonly rating: {
+  rating: {
     average_rating: number;
     review_count: number;
-  }; // Optional rating object with average rating and review count
+  };
+
+  @IsObject()
+  @IsOptional()
+  avatar?: {
+    key: string;
+    url: string;
+  };
 }

@@ -3,7 +3,7 @@ import {
   IsEnum,
   IsArray,
   IsOptional,
-  IsNumber,
+  IsNumber
 } from 'class-validator';
 import { AdminRole, AdminPermission, AdminStatus } from 'src/utils/types/admin';
 
@@ -15,19 +15,18 @@ export class CreateAdminDto {
   role: AdminRole;
 
   @IsArray()
-  @IsEnum(AdminPermission, { each: true })
   permissions: AdminPermission[];
 
-  @IsOptional()
   @IsArray()
+  @IsOptional()
   assigned_restaurants?: string[];
 
-  @IsOptional()
   @IsArray()
+  @IsOptional()
   assigned_drivers?: string[];
 
-  @IsOptional()
   @IsArray()
+  @IsOptional()
   assigned_customer_care?: string[];
 
   @IsOptional()
@@ -38,8 +37,8 @@ export class CreateAdminDto {
   @IsNumber()
   updated_at: number;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   created_by?: string;
 
   @IsEnum(AdminStatus)

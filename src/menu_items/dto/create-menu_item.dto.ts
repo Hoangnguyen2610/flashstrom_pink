@@ -5,55 +5,53 @@ import {
   IsOptional,
   IsObject,
   IsNumber,
-  IsUUID
+  ValidateNested
 } from 'class-validator';
-import { DiscountDto } from 'src/discounts/discount.dto'; // Import the DiscountDto
+import { Type } from 'class-transformer';
+import { DiscountDto } from 'src/discounts/discount.dto';
+import { MenuItemVariantDto } from 'src/menu_item_variants/dto/create-menu_item_variant.dto';
 
 export class CreateMenuItemDto {
-  @IsOptional()
   @IsString()
-  restaurant_id: string; // The ID of the related restaurant
+  restaurant_id: string;
 
   @IsString()
-  name: string; // Name of the menu item
+  name: string;
 
   @IsOptional()
   @IsString()
-  description: string; // Description of the menu item
+  description: string;
 
-  @IsOptional()
   @IsNumber()
-  price: number; // Price of the menu item
+  price: number;
 
   @IsArray()
   @IsString({ each: true })
-  category: string[]; // Array of food category IDs
+  category: string[];
 
   @IsOptional()
   @IsObject()
-  avatar: {
+  avatar?: {
     key: string;
     url: string;
   };
 
   @IsOptional()
   @IsBoolean()
-  availability: boolean; // Availability of the menu item (true/false)
+  availability?: boolean;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  suggest_notes: string[]; // Suggested notes (e.g., 'no spicy', 'more carrots')
+  suggest_notes?: string[];
 
   @IsOptional()
   @IsArray()
-  @IsObject({ each: true }) // Expecting array of objects for variants
-  variants: {
-    price?: number; // Price of the variant
-    description?: string; // Optional description for the variant
-  }[]; // Array of variant objects
+  @ValidateNested({ each: true })
+  @Type(() => MenuItemVariantDto)
+  variants?: MenuItemVariantDto[];
 
   @IsOptional()
   @IsObject()
-  discount: DiscountDto; // Discount information
+  discount?: DiscountDto;
 }

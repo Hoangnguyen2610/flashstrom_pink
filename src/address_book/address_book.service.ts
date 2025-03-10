@@ -1,197 +1,174 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { AddressBook } from './address_book.schema';
+import { AddressBookRepository } from './address_book.repository';
 import { CreateAddressBookDto } from './dto/create-address_book.dto';
 import { UpdateAddressBookDto } from './dto/update-address_book.dto';
-import { createResponse } from 'src/utils/createResponse';
-import { ApiResponse } from 'src/utils/createResponse';
-import { Customer } from 'src/customers/customer.schema';
+import { createResponse, ApiResponse } from 'src/utils/createResponse';
+import { AddressBook } from './entities/address_book.entity';
+import { CustomersRepository } from 'src/customers/customers.repository';
 
 @Injectable()
 export class AddressBookService {
   constructor(
-    @InjectModel('AddressBook')
-    private readonly addressBookModel: Model<AddressBook>,
-    @InjectModel('Customer') private readonly customerModel: Model<Customer>
+    private readonly addressBookRepository: AddressBookRepository,
+    private readonly customerRepository: CustomersRepository
   ) {}
 
-  async createAddressBook(
-    createAddressBookDto: CreateAddressBookDto
+  async create(
+    createAddressBookDto: CreateAddressBookDto,
+    customerId?: string
   ): Promise<ApiResponse<AddressBook>> {
     try {
-      const existingAddress =
-        await this.findExistingAddress(createAddressBookDto);
-      if (existingAddress) {
-        return this.handleDuplicateAddress();
+      const newAddress =
+        await this.addressBookRepository.create(createAddressBookDto);
+
+      if (customerId) {
+        const customer = await this.customerRepository.findById(customerId);
+        if (!customer) {
+          return createResponse('NotFound', null, 'Customer not found');
+        }
+
+        if (!customer.address) {
+          customer.address = [];
+        }
+
+        customer.address.push(newAddress);
+        await this.customerRepository.save(customer);
       }
 
-      const newAddress = await this.saveNewAddress(createAddressBookDto);
+      return createResponse('OK', newAddress, 'Address created successfully');
+    } catch (error) {
+      console.error('Error creating address:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while creating the address'
+      );
+    }
+  }
+
+  async findAll(): Promise<ApiResponse<AddressBook[]>> {
+    try {
+      const addresses = await this.addressBookRepository.findAll();
+      return createResponse('OK', addresses, 'Addresses fetched successfully');
+    } catch (error) {
+      console.error('Error fetching addresses:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching addresses'
+      );
+    }
+  }
+
+  async findOne(id: string): Promise<ApiResponse<AddressBook>> {
+    try {
+      const address = await this.addressBookRepository.findById(id);
+      if (!address) {
+        return createResponse('NotFound', null, 'Address not found');
+      }
+      return createResponse('OK', address, 'Address fetched successfully');
+    } catch (error) {
+      console.error('Error fetching address:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while fetching the address'
+      );
+    }
+  }
+
+  async update(
+    id: string,
+    updateAddressBookDto: UpdateAddressBookDto
+  ): Promise<ApiResponse<AddressBook>> {
+    try {
+      const updatedAddress = await this.addressBookRepository.update(
+        id,
+        updateAddressBookDto
+      );
+      if (!updatedAddress) {
+        return createResponse('NotFound', null, 'Address not found');
+      }
       return createResponse(
         'OK',
-        newAddress,
-        'Address book created successfully'
+        updatedAddress,
+        'Address updated successfully'
       );
     } catch (error) {
-      return this.handleError('Error creating address book:', error);
+      console.error('Error updating address:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while updating the address'
+      );
     }
   }
 
-  async getAllAddressBooks(): Promise<ApiResponse<AddressBook[]>> {
+  async remove(id: string, customerId?: string): Promise<ApiResponse<null>> {
     try {
-      const addressBooks = await this.addressBookModel.find().exec();
-      return createResponse('OK', addressBooks, 'Fetched all address books');
-    } catch (error) {
-      return this.handleError('Error fetching address books:', error);
-    }
-  }
-
-  async getAddressBookById(id: string): Promise<ApiResponse<AddressBook>> {
-    try {
-      const addressBook = await this.addressBookModel.findById(id).exec();
-      return this.handleAddressBookResponse(addressBook);
-    } catch (error) {
-      return this.handleError('Error fetching address book:', error);
-    }
-  }
-
-  async updateAddressBook(
-    id: string,
-    updateData: UpdateAddressBookDto,
-    entityId?: string
-  ): Promise<ApiResponse<AddressBook>> {
-    try {
-      if (entityId) {
-        return await this.handleCustomerAddressUpdate(id, updateData, entityId);
-      }
-
-      const updatedAddress = await this.addressBookModel
-        .findByIdAndUpdate(id, updateData, { new: true })
-        .exec();
-      return this.handleAddressBookResponse(updatedAddress);
-    } catch (error) {
-      return this.handleError('Error updating address book:', error);
-    }
-  }
-
-  async deleteAddressBook(id: string): Promise<ApiResponse<null>> {
-    try {
-      const deletedAddress = await this.addressBookModel
-        .findByIdAndDelete(id)
-        .exec();
-      if (!deletedAddress) {
-        return createResponse('NotFound', null, 'Address book not found');
-      }
-      return createResponse('OK', null, 'Address book deleted successfully');
-    } catch (error) {
-      return this.handleError('Error deleting address book:', error);
-    }
-  }
-
-  // Private helper methods
-  private async findExistingAddress(
-    addressData: CreateAddressBookDto
-  ): Promise<AddressBook | null> {
-    return this.addressBookModel
-      .findOne({
-        street: addressData.street,
-        city: addressData.city
-      })
-      .exec();
-  }
-
-  private async saveNewAddress(
-    addressData: CreateAddressBookDto
-  ): Promise<AddressBook> {
-    const newAddress = new this.addressBookModel({
-      ...addressData,
-      created_at: new Date().getTime(),
-      updated_at: new Date().getTime()
-    });
-    return newAddress.save();
-  }
-
-  private async handleCustomerAddressUpdate(
-    id: string,
-    updateData: UpdateAddressBookDto,
-    entityId: string
-  ): Promise<ApiResponse<AddressBook>> {
-    const customer = await this.findCustomerWithAddress(entityId, id);
-    if (!customer) {
-      return createResponse('NotFound', null, 'Customer not found');
-    }
-
-    await this.updateCustomerAddresses(customer.address);
-    const updatedAddress = await this.updateAddressWithDefault(id, updateData);
-
-    if (!updatedAddress) {
-      return createResponse('NotFound', null, 'Address book not found');
-    }
-
-    return createResponse(
-      'OK',
-      updatedAddress,
-      'Address book updated successfully'
-    );
-  }
-
-  private async findCustomerWithAddress(
-    entityId: string,
-    addressId: string
-  ): Promise<Customer | null> {
-    return this.customerModel.findOne({
-      _id: entityId,
-      address: { $in: [addressId] }
-    });
-  }
-
-  private async updateCustomerAddresses(addresses: string[]): Promise<void> {
-    await Promise.all(
-      addresses.map(async addressId => {
-        const address = await this.addressBookModel.findById(addressId);
-        if (address?.is_default) {
-          await this.addressBookModel.findByIdAndUpdate(
-            address._id,
-            { is_default: false },
-            { new: true }
-          );
+      if (customerId) {
+        const customer = await this.customerRepository.findById(customerId);
+        if (!customer) {
+          return createResponse('NotFound', null, 'Customer not found');
         }
-      })
-    );
-  }
 
-  private async updateAddressWithDefault(
-    id: string,
-    updateData: UpdateAddressBookDto
-  ): Promise<AddressBook | null> {
-    return this.addressBookModel
-      .findByIdAndUpdate(id, { ...updateData, is_default: true }, { new: true })
-      .exec();
-  }
+        customer.address = customer.address.filter(addr => addr.id !== id);
+        await this.customerRepository.save(customer);
+      }
 
-  private handleDuplicateAddress(): ApiResponse<null> {
-    return createResponse('DuplicatedRecord', null, 'Address already exists');
-  }
-
-  private handleAddressBookResponse(
-    addressBook: AddressBook | null
-  ): ApiResponse<AddressBook> {
-    if (!addressBook) {
-      return createResponse('NotFound', null, 'Address book not found');
+      await this.addressBookRepository.delete(id);
+      return createResponse('OK', null, 'Address deleted successfully');
+    } catch (error) {
+      console.error('Error deleting address:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while deleting the address'
+      );
     }
-    return createResponse(
-      'OK',
-      addressBook,
-      'Address book retrieved successfully'
-    );
   }
 
-  private handleError(message: string, error: any): ApiResponse<null> {
-    console.error(message, error);
-    return createResponse(
-      'ServerError',
-      null,
-      'An error occurred while processing your request'
-    );
+  async toggleCustomerAddress(
+    customerId: string,
+    addressId: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const customer = await this.customerRepository.findById(customerId);
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+
+      const address = await this.addressBookRepository.findById(addressId);
+      if (!address) {
+        return createResponse('NotFound', null, 'Address not found');
+      }
+
+      if (!customer.address) {
+        customer.address = [];
+      }
+
+      const existingIndex = customer.address.findIndex(
+        addr => addr.id === addressId
+      );
+      if (existingIndex > -1) {
+        customer.address.splice(existingIndex, 1);
+      } else {
+        customer.address.push(address);
+      }
+
+      await this.customerRepository.save(customer);
+      return createResponse(
+        'OK',
+        customer,
+        'Customer address updated successfully'
+      );
+    } catch (error) {
+      console.error('Error toggling customer address:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while updating customer address'
+      );
+    }
   }
 }

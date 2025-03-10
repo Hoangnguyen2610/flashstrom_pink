@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { Customer } from './customer.schema'; // Assuming a Customer schema similar to User schema
-import { createResponse, ApiResponse } from 'src/utils/createResponse'; // Importing the utility for response creation
-import { User } from 'src/user/user.schema';
-import { Restaurant } from 'src/restaurants/restaurants.schema';
-import { AddressBook } from 'src/address_book/address_book.schema';
-import { FoodCategory } from 'src/food_categories/food_categories.schema';
+import { Customer } from './entities/customer.entity';
+import { createResponse, ApiResponse } from 'src/utils/createResponse';
+import { UserRepository } from '../users/users.repository';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { RestaurantsRepository } from 'src/restaurants/restaurants.repository';
+import { CustomersRepository } from './customers.repository';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 
 export interface AddressPopulate {
-  _id?: string;
+  id?: string;
   street?: string;
   city?: string;
   postal_code?: number;
@@ -24,32 +25,27 @@ export interface AddressPopulate {
 @Injectable()
 export class CustomersService {
   constructor(
-    @InjectModel('Customer') private readonly customerModel: Model<Customer>,
-    @InjectModel('Restaurant')
-    private readonly restaurantModel: Model<Restaurant>,
-    @InjectModel('User') private readonly userModel: Model<User>,
-    @InjectModel('FoodCategory')
-    private readonly FoodCategoryModel: Model<FoodCategory>,
-    @InjectModel('AddressBook')
-    private readonly addressBookModel: Model<AddressBook>
+    private readonly restaurantRepository: RestaurantsRepository,
+    private readonly userRepository: UserRepository,
+    private readonly addressRepository: AddressBookRepository,
+    private readonly foodCategoriesRepository: FoodCategoriesRepository,
+    private readonly customerRepository: CustomersRepository
   ) {}
 
-  // Create a new customer
   async create(
     createCustomerDto: CreateCustomerDto
   ): Promise<ApiResponse<Customer>> {
     try {
-      const existingUser = await this.userModel
-        .findById(createCustomerDto.user_id)
-        .exec();
-      console.log('existingUser', existingUser);
+      const existingUser = await this.userRepository.findById(
+        createCustomerDto.user_id
+      );
       if (!existingUser) {
         return createResponse('NotFound', null, 'User not found');
       }
 
-      const existingCustomer = await this.customerModel
-        .findOne({ user_id: createCustomerDto.user_id })
-        .exec();
+      const existingCustomer = await this.customerRepository.findByUserId(
+        createCustomerDto.user_id
+      );
       if (existingCustomer) {
         return createResponse(
           'DuplicatedRecord',
@@ -58,8 +54,8 @@ export class CustomersService {
         );
       }
 
-      const newCustomer = new this.customerModel(createCustomerDto);
-      await newCustomer.save();
+      const newCustomer =
+        await this.customerRepository.create(createCustomerDto);
       return createResponse('OK', newCustomer, 'Customer created successfully');
     } catch (error) {
       console.error('Error creating customer:', error);
@@ -71,10 +67,9 @@ export class CustomersService {
     }
   }
 
-  // Get all customers
   async findAll(): Promise<ApiResponse<Customer[]>> {
     try {
-      const customers = await this.customerModel.find().exec();
+      const customers = await this.customerRepository.findAll();
       return createResponse('OK', customers, 'Fetched all customers');
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -86,26 +81,22 @@ export class CustomersService {
     }
   }
 
-  // Get a customer by ID
   async findCustomerById(id: string): Promise<ApiResponse<any>> {
     try {
-      // Fetch customer by ID
-      const customer = await this.customerModel.findById(id).exec();
+      const customer = await this.customerRepository.findById(id);
       if (!customer) {
         return createResponse('NotFound', null, 'Customer not found');
       }
 
-      // Fetch user by user_id from the customer data
-      const user = await this.userModel.findById(customer.user_id).exec();
+      const user = await this.userRepository.findById(customer.user_id);
       if (!user) {
         return createResponse('NotFound', null, 'User not found');
       }
 
-      // Merge customer data with selected user data
       const customerWithUserData = {
-        ...customer.toObject(),
+        ...customer,
         user: {
-          _id: user._id,
+          id: user.id,
           first_name: user.first_name,
           last_name: user.last_name,
           email: user.email,
@@ -129,74 +120,18 @@ export class CustomersService {
     }
   }
 
-  async findOne(conditions: object): Promise<ApiResponse<Customer>> {
-    try {
-      const customer = await this.customerModel.findOne(conditions).exec();
-      if (!customer) {
-        return createResponse('NotFound', null, 'Customer not found');
-      }
-      return createResponse('OK', customer, 'Fetched customer successfully');
-    } catch (error) {
-      console.error('Error fetching customer:', error);
-      return createResponse(
-        'ServerError',
-        null,
-        'An error occurred while fetching the customer'
-      );
-    }
-  }
-
-  // Update a customer by ID
   async update(
     id: string,
     updateCustomerDto: UpdateCustomerDto
   ): Promise<ApiResponse<Customer>> {
     try {
-      const customer = await this.customerModel.findById(id).exec();
-      if (!customer) {
+      const updatedCustomer = await this.customerRepository.update(
+        id,
+        updateCustomerDto
+      );
+      if (!updatedCustomer) {
         return createResponse('NotFound', null, 'Customer not found');
       }
-
-      if (updateCustomerDto.first_name) {
-        customer.first_name = updateCustomerDto.first_name;
-      }
-
-      if (updateCustomerDto.last_name) {
-        customer.last_name = updateCustomerDto.last_name;
-      }
-
-      if (updateCustomerDto.address) {
-        const addressExists = await this.validateAndUpdateAddress(
-          customer,
-          updateCustomerDto.address
-        );
-        if (!addressExists) {
-          return createResponse('NotFound', null, 'Address not found');
-        }
-      }
-
-      if (updateCustomerDto.favorite_restaurants) {
-        const restaurantExists =
-          await this.validateAndUpdateFavoriteRestaurants(
-            customer,
-            updateCustomerDto.favorite_restaurants
-          );
-        if (!restaurantExists) {
-          return createResponse('NotFound', null, 'Restaurant not found');
-        }
-      }
-
-      if (updateCustomerDto.preferred_category) {
-        const categoryExists = await this.validateAndUpdatePreferredCategory(
-          customer,
-          updateCustomerDto.preferred_category
-        );
-        if (!categoryExists) {
-          return createResponse('NotFound', null, 'Category not found');
-        }
-      }
-
-      const updatedCustomer = await customer.save();
       return createResponse(
         'OK',
         updatedCustomer,
@@ -212,15 +147,9 @@ export class CustomersService {
     }
   }
 
-  // Delete a customer by ID
   async remove(id: string): Promise<ApiResponse<null>> {
     try {
-      const deletedCustomer = await this.customerModel
-        .findByIdAndDelete(id)
-        .exec();
-      if (!deletedCustomer) {
-        return createResponse('NotFound', null, 'Customer not found');
-      }
+      await this.customerRepository.remove(id);
       return createResponse('OK', null, 'Customer deleted successfully');
     } catch (error) {
       console.error('Error deleting customer:', error);
@@ -236,21 +165,36 @@ export class CustomersService {
     uploadResult: { url: string; public_id: string },
     entityId: string
   ) {
-    const customer = await this.customerModel.findByIdAndUpdate(
-      entityId,
-      { avatar: { url: uploadResult.url, key: uploadResult.public_id } },
-      { new: true }
-    );
+    try {
+      const customer = await this.customerRepository.findById(entityId);
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
 
-    if (!customer) {
-      return createResponse('NotFound', null, 'Customer not found');
+      const updateDto = new UpdateCustomerDto();
+      updateDto.avatar = {
+        url: uploadResult.url,
+        key: uploadResult.public_id
+      };
+
+      const updatedCustomer = await this.customerRepository.update(
+        entityId,
+        updateDto
+      );
+
+      return createResponse(
+        'OK',
+        updatedCustomer,
+        'Customer avatar updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating customer avatar:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while updating the customer avatar'
+      );
     }
-
-    return createResponse(
-      'OK',
-      customer,
-      'Customer avatar updated successfully'
-    );
   }
 
   // Helper function to check if a restaurant is open based on the current time
@@ -291,10 +235,7 @@ export class CustomersService {
   async getAllRestaurants(customerId: string): Promise<any> {
     try {
       // Fetch customer data to get preferences and restaurant history
-      const customer = await this.customerModel
-        .findById(customerId)
-        .populate('address', '-created_at -updated_at') // Populate address field
-        .exec();
+      const customer = await this.customerRepository.findById(customerId);
 
       if (!customer) {
         return createResponse('NotFound', null, 'Customer not found');
@@ -310,12 +251,7 @@ export class CustomersService {
       const customerAddressArray = customerAddress as AddressPopulate[];
 
       // Fetch all restaurants
-      const restaurants = await this.restaurantModel
-        .find()
-        .populate('address', '-created_at -updated_at') // Populate restaurant address
-        .populate('promotions', '-created_at -updated_at')
-        .populate('specialize_in', '-created_at -updated_at')
-        .exec();
+      const restaurants = await this.restaurantRepository.findAll();
 
       // Prioritize restaurants based on the preferred categories, restaurant history, and distance
       const prioritizedRestaurants = restaurants
@@ -333,14 +269,14 @@ export class CustomersService {
 
           // If either location is missing, return the restaurant with a priority score of 0
           if (!customerLocation || !restaurantAddress?.location) {
-            return { ...restaurant.toObject(), priorityScore: 0 }; // Default score if no address or location
+            return { ...restaurant, priorityScore: 0 }; // Default score if no address or location
           }
 
           const restaurantLocation = restaurantAddress.location;
 
           // Check if the restaurant matches the customer's preferred category
           const isPreferred = restaurant.specialize_in.some(category =>
-            preferred_category.includes(category)
+            preferred_category.includes(category as unknown as FoodCategory)
           );
 
           // Find how many times the customer has visited this restaurant
@@ -365,7 +301,7 @@ export class CustomersService {
             (isPreferred ? 1 : 0) * 3 + visitCount * 2 + distanceWeight * 5; // Add distance weighting here
 
           return {
-            ...restaurant.toObject(),
+            ...restaurant,
             priorityScore // Add the score to the restaurant object
           };
         })
@@ -387,57 +323,71 @@ export class CustomersService {
     }
   }
 
-  // Private helper methods
-  private async validateAndUpdateAddress(
-    customer: Customer,
-    addressId: string
-  ): Promise<boolean> {
-    const addressExists = await this.addressBookModel
-      .findById(addressId)
-      .exec();
-    if (!addressExists) return false;
+  // // Private helper methods
+  // private async validateAndUpdateAddress(
+  //   customer: Customer,
+  //   addressId: string
+  // ): Promise<boolean> {
+  //   const addressExists = await this.addressRepository.findById(addressId);
+  //   if (!addressExists) return false;
 
-    const addressIndex = customer.address.indexOf(addressId);
-    if (addressIndex !== -1) {
-      customer.address.splice(addressIndex, 1);
-    } else {
-      customer.address.push(addressId);
+  //   const addressIndex = customer.address.indexOf(addressId);
+  //   if (addressIndex !== -1) {
+  //     customer.address.splice(addressIndex, 1);
+  //   } else {
+  //     customer.address.push(addressId);
+  //   }
+  //   return true;
+  // }
+
+  // private async validateAndUpdateFavoriteRestaurants(
+  //   customer: Customer,
+  //   restaurantId: string
+  // ): Promise<boolean> {
+  //   const restaurantExists =
+  //     await this.restaurantRepository.findById(restaurantId);
+  //   if (!restaurantExists) return false;
+
+  //   const restaurantIndex = customer.favorite_restaurants.indexOf(restaurantId);
+  //   if (restaurantIndex !== -1) {
+  //     customer.favorite_restaurants.splice(restaurantIndex, 1);
+  //   } else {
+  //     customer.favorite_restaurants.push(restaurantId);
+  //   }
+  //   return true;
+  // }
+
+  // private async validateAndUpdatePreferredCategory(
+  //   customer: Customer,
+  //   categoryId: string
+  // ): Promise<boolean> {
+  //   const categoryExists =
+  //     await this.foodCategoriesRepository.findById(categoryId);
+  //   if (!categoryExists) return false;
+
+  //   const categoryIndex = customer.preferred_category.indexOf(categoryId);
+  //   if (categoryIndex !== -1) {
+  //     customer.preferred_category.splice(categoryIndex, 1);
+  //   } else {
+  //     customer.preferred_category.push(categoryId);
+  //   }
+  //   return true;
+  // }
+
+  async findOne(conditions: Partial<Customer>): Promise<ApiResponse<Customer>> {
+    try {
+      const customer = await this.customerRepository.findOneBy(conditions);
+      if (!customer) {
+        return createResponse('NotFound', null, 'Customer not found');
+      }
+      return createResponse('OK', customer, 'Customer found successfully');
+    } catch (error) {
+      console.error('Error finding customer:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'An error occurred while finding the customer'
+      );
     }
-    return true;
-  }
-
-  private async validateAndUpdateFavoriteRestaurants(
-    customer: Customer,
-    restaurantId: string
-  ): Promise<boolean> {
-    const restaurantExists = await this.restaurantModel
-      .findById(restaurantId)
-      .exec();
-    if (!restaurantExists) return false;
-
-    const restaurantIndex = customer.favorite_restaurants.indexOf(restaurantId);
-    if (restaurantIndex !== -1) {
-      customer.favorite_restaurants.splice(restaurantIndex, 1);
-    } else {
-      customer.favorite_restaurants.push(restaurantId);
-    }
-    return true;
-  }
-
-  private async validateAndUpdatePreferredCategory(
-    customer: Customer,
-    categoryId: string
-  ): Promise<boolean> {
-    const categoryExists =
-      await this.FoodCategoryModel.findById(categoryId).exec();
-    if (!categoryExists) return false;
-
-    const categoryIndex = customer.preferred_category.indexOf(categoryId);
-    if (categoryIndex !== -1) {
-      customer.preferred_category.splice(categoryIndex, 1);
-    } else {
-      customer.preferred_category.push(categoryId);
-    }
-    return true;
   }
 }

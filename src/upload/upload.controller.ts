@@ -12,7 +12,7 @@ import { memoryStorage } from 'multer';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
 import { DriversService } from 'src/drivers/drivers.service';
 import { CustomersService } from 'src/customers/customers.service';
-import { Enum_AvatarType, Enum_UserType } from 'src/types/Payload';
+import { Enum_AvatarType } from 'src/types/Payload';
 import { createResponse } from 'src/utils/createResponse'; // Import createResponse
 import { MenuItemsService } from 'src/menu_items/menu_items.service';
 

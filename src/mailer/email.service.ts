@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import { UserService } from 'src/user/user.service';
+import { UsersService } from '../users/users.service';
 import { createResponse } from 'src/utils/createResponse';
 
 @Injectable()
@@ -9,7 +9,7 @@ export class EmailService {
   constructor(
     @Inject('MAIL_TRANSPORT')
     private readonly transport: nodemailer.Transporter,
-    private readonly userService: UserService
+    private readonly userService: UsersService
   ) {}
 
   // Generate a random 6-digit verification code
@@ -62,7 +62,6 @@ export class EmailService {
         subject: 'Email Verification Code',
         html: emailTemplate // HTML content with injected verification code
       });
-      console.log('Verification email sent!');
       return verificationCode; // Return the code so it can be saved in the user record
     } catch (error) {
       console.error('Error sending verification email:', error);
@@ -85,10 +84,10 @@ export class EmailService {
   }
 
   async verifyEmail(email: string, code: string) {
-    const user = await this.userService.findOne({ email });
+    const user = await this.userService.findByCondition({ email });
 
     if (user && user.data.verification_code === +code) {
-      await this.userService.updateUser(user.data._id as unknown as string, {
+      await this.userService.update(user.data.id, {
         is_verified: true
       });
       return createResponse('OK', null, 'Email verified successfully');

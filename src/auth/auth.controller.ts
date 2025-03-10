@@ -1,7 +1,7 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { EmailService } from 'src/mailer/email.service';
-import { UserService } from 'src/user/user.service';
+import { UsersService } from 'src/users/users.service';
 import { createResponse } from 'src/utils/createResponse';
 import { Enum_UserType } from 'src/types/Payload';
 
@@ -10,7 +10,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly emailService: EmailService,
-    private readonly userService: UserService
+    private readonly usersService: UsersService
   ) {}
 
   @Post('register-customer')
@@ -35,10 +35,9 @@ export class AuthController {
       const code = await this.emailService.sendVerificationEmail(
         userData.email
       ); // Send email to the user's email
-      await this.userService.updateUser(
-        registrationResponse.data.data.user_id,
-        { verification_code: code }
-      );
+      await this.usersService.update(registrationResponse.data.data.user_id, {
+        verification_code: code
+      });
 
       return createResponse(
         'OK',
@@ -75,10 +74,9 @@ export class AuthController {
       const code = await this.emailService.sendVerificationEmail(
         userData.email
       ); // Send email to the user's email
-      await this.userService.updateUser(
-        registrationResponse.data.data.user_id,
-        { verification_code: code }
-      );
+      await this.usersService.update(registrationResponse.data.data.user_id, {
+        verification_code: code
+      });
 
       return createResponse(
         'OK',
@@ -116,7 +114,7 @@ export class AuthController {
       const code = await this.emailService.sendVerificationEmail(
         userData.email
       ); // Send email to the user's email
-      await this.userService.updateUser(
+      await this.usersService.update(
         registrationResponse.data.data.user_id ??
           registrationResponse.data.data.owner_id,
         { verification_code: code }
@@ -157,10 +155,47 @@ export class AuthController {
       const code = await this.emailService.sendVerificationEmail(
         userData.email
       ); // Send email to the user's email
-      await this.userService.updateUser(
-        registrationResponse.data.data.user_id,
-        { verification_code: code }
+      await this.usersService.update(registrationResponse.data.data.user_id, {
+        verification_code: code
+      });
+
+      return createResponse(
+        'OK',
+        null,
+        'Registration successful, verification email sent'
       );
+    } else {
+      return createResponse(
+        'ServerError',
+        null,
+        'Something went wrong in the server'
+      );
+    }
+  }
+  @Post('register-customer-care')
+  async registerCustomerCare(
+    @Body()
+    userData: {
+      user_id: string;
+      email: string;
+      password: string;
+      balance: string;
+    }
+  ) {
+    // Step 1: Register the customer with the provided data
+    const registrationResponse = await this.authService.register(
+      userData,
+      Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
+    );
+
+    // If registration is successful
+    if (registrationResponse?.data?.data) {
+      const code = await this.emailService.sendVerificationEmail(
+        userData.email
+      ); // Send email to the user's email
+      await this.usersService.update(registrationResponse.data.data.user_id, {
+        verification_code: code
+      });
 
       return createResponse(
         'OK',
@@ -196,6 +231,15 @@ export class AuthController {
     @Body() credentials: { email: string; password: string }
   ) {
     return this.authService.login(credentials, Enum_UserType.RESTAURANT_OWNER);
+  }
+  @Post('login-customer-care')
+  async loginCustomerCare(
+    @Body() credentials: { email: string; password: string }
+  ) {
+    return this.authService.login(
+      credentials,
+      Enum_UserType.CUSTOMER_CARE_REPRESENTATIVE
+    );
   }
 
   @Post('verify-email')

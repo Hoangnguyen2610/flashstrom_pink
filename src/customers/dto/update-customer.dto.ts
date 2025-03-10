@@ -1,66 +1,97 @@
-import { IsString, IsArray, IsEnum, IsOptional, IsInt } from 'class-validator';
+import {
+  IsString,
+  IsArray,
+  IsEnum,
+  IsOptional,
+  IsObject,
+  ValidateNested,
+  IsNumber
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { Enum_AppTheme } from 'src/types/Payload';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateCustomerDto } from './create-customer.dto';
 
+class Avatar {
+  @IsString()
+  url: string;
+
+  @IsString()
+  key: string;
+}
+
+class AppPreferences {
+  @IsEnum(Enum_AppTheme)
+  theme: Enum_AppTheme;
+}
+
+class RestaurantHistory {
+  @IsString()
+  restaurant_id: string;
+
+  @IsNumber()
+  count: number;
+}
+
 export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
   @IsOptional()
   @IsString()
-  user_id?: string; // Reference to User's id (USR_* format), optional
+  id?: string;
 
   @IsOptional()
   @IsString()
-  _id?: string; // Reference to User's id (USR_* format), optional
+  user_id?: string;
 
   @IsOptional()
   @IsString()
-  first_name: string;
+  first_name?: string;
 
   @IsOptional()
   @IsString()
-  last_name: string;
-
-  @IsOptional()
-  @IsString()
-  address: string;
-
-  @IsOptional()
-  avatar?: {
-    url: string;
-    key: string;
-  }; // Avatar object with url and key, optional
-
-  @IsOptional()
-  @IsString()
-  preferred_category: string; // Array of preferred food category IDs (FC_* format)
-
-  @IsOptional()
-  @IsString()
-  favorite_restaurants?: string; // Array of favorite restaurant IDs (RES_* format), optional
+  last_name?: string;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  favorite_items?: string[]; // Array of favorite menu IDs (MENU_* format), optional
+  address_ids?: string[];
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => Avatar)
+  avatar?: Avatar;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  support_tickets?: string[]; // Array of support ticket IDs (ST_* format), optional
+  preferred_category_ids?: string[];
 
   @IsOptional()
-  @IsEnum(Enum_AppTheme)
-  app_preferences?: {
-    theme: Enum_AppTheme;
-  }; // User's app theme preference, optional
+  @IsArray()
+  @IsString({ each: true })
+  favorite_restaurant_ids?: string[];
 
   @IsOptional()
-  @IsInt()
-  created_at?: number; // Unix timestamp for when the customer was created, optional
+  @IsArray()
+  @IsString({ each: true })
+  favorite_items?: string[];
 
   @IsOptional()
-  @IsInt()
-  updated_at?: number; // Unix timestamp for when the customer was last updated, optional
+  @IsArray()
+  @IsString({ each: true })
+  support_tickets?: string[];
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => AppPreferences)
+  app_preferences?: AppPreferences;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RestaurantHistory)
+  restaurant_history?: RestaurantHistory[];
 }
 
 export class UpdateCustomerPreferredCategoryDto extends UpdateCustomerDto {

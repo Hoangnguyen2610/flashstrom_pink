@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import cloudinary from 'src/config/cloudinary.config'; // Ensure Cloudinary is configured correctly
-import { UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
+import { UploadApiResponse } from 'cloudinary';
 
 @Injectable()
 export class UploadService {

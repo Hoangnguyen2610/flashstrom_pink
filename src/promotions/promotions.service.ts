@@ -1,130 +1,111 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
-import { Promotion } from './promotions.schema'; // Assuming Promotion schema is similar to the one we've defined earlier
-import { createResponse } from 'src/utils/createResponse'; // Utility for creating responses
+import { Promotion } from './entities/promotion.entity';
+import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
+import { v4 as uuidv4 } from 'uuid';
+import { PromotionsRepository } from './promotions.repository';
 
 @Injectable()
 export class PromotionsService {
-  constructor(
-    @InjectModel('Promotion') private readonly promotionModel: Model<Promotion>
-  ) {}
+  constructor(private readonly promotionsRepository: PromotionsRepository) {}
 
-  // Create a new promotion
   async create(
     createPromotionDto: CreatePromotionDto
   ): Promise<ApiResponse<Promotion>> {
     try {
-      const existingPromotion = await this.findPromotionByName(
+      const existingPromotion = await this.promotionsRepository.findByName(
         createPromotionDto.name
       );
       if (existingPromotion) {
-        return this.handleDuplicatePromotion();
+        return createResponse(
+          'DuplicatedRecord',
+          null,
+          'Promotion with this name already exists'
+        );
       }
 
-      const newPromotion = await this.saveNewPromotion(createPromotionDto);
+      const savedPromotion = await this.promotionsRepository.create({
+        ...createPromotionDto,
+        id: `FF_PROMO_${uuidv4()}`
+      });
+
       return createResponse(
         'OK',
-        newPromotion,
+        savedPromotion,
         'Promotion created successfully'
       );
     } catch (error) {
-      return this.handleError('Error creating promotion:', error);
+      console.log('error', error);
+      return createResponse('ServerError', null, 'Error creating promotion');
     }
   }
 
-  // Get all promotions
   async findAll(): Promise<ApiResponse<Promotion[]>> {
     try {
-      const promotions = await this.promotionModel.find().exec();
-      return createResponse('OK', promotions, 'Fetched all promotions');
+      const promotions = await this.promotionsRepository.findAll();
+      return createResponse(
+        'OK',
+        promotions,
+        'Promotions retrieved successfully'
+      );
     } catch (error) {
-      return this.handleError('Error fetching promotions:', error);
+      console.log('error', error);
+      return createResponse('ServerError', null, 'Error fetching promotions');
     }
   }
 
-  // Get a promotion by ID
   async findOne(id: string): Promise<ApiResponse<Promotion>> {
     try {
-      const promotion = await this.promotionModel.findById(id).exec();
-      return this.handlePromotionResponse(promotion);
+      const promotion = await this.promotionsRepository.findById(id);
+      if (!promotion) {
+        return createResponse('NotFound', null, 'Promotion not found');
+      }
+      return createResponse(
+        'OK',
+        promotion,
+        'Promotion retrieved successfully'
+      );
     } catch (error) {
-      return this.handleError('Error fetching promotion:', error);
+      console.log('error', error);
+      return createResponse('ServerError', null, 'Error fetching promotion');
     }
   }
 
-  // Update a promotion by ID
   async update(
     id: string,
     updatePromotionDto: UpdatePromotionDto
   ): Promise<ApiResponse<Promotion>> {
     try {
-      const updatedPromotion = await this.promotionModel
-        .findByIdAndUpdate(id, updatePromotionDto, { new: true })
-        .exec();
-      return this.handlePromotionResponse(updatedPromotion);
+      const promotion = await this.promotionsRepository.findById(id);
+      if (!promotion) {
+        return createResponse('NotFound', null, 'Promotion not found');
+      }
+
+      await this.promotionsRepository.update(id, updatePromotionDto);
+      const updatedPromotion = await this.promotionsRepository.findById(id);
+      return createResponse(
+        'OK',
+        updatedPromotion,
+        'Promotion updated successfully'
+      );
     } catch (error) {
-      return this.handleError('Error updating promotion:', error);
+      console.log('error', error);
+      return createResponse('ServerError', null, 'Error updating promotion');
     }
   }
 
-  // Delete a promotion by ID
   async remove(id: string): Promise<ApiResponse<null>> {
     try {
-      const deletedPromotion = await this.promotionModel
-        .findByIdAndDelete(id)
-        .exec();
-      if (!deletedPromotion) {
+      const result = await this.promotionsRepository.delete(id);
+      if (result.affected === 0) {
         return createResponse('NotFound', null, 'Promotion not found');
       }
       return createResponse('OK', null, 'Promotion deleted successfully');
     } catch (error) {
-      return this.handleError('Error deleting promotion:', error);
+      console.log('error', error);
+      return createResponse('ServerError', null, 'Error deleting promotion');
     }
-  }
-
-  // Private helper methods
-  private async findPromotionByName(name: string): Promise<Promotion | null> {
-    return this.promotionModel.findOne({ name }).exec();
-  }
-
-  private async saveNewPromotion(
-    promotionData: CreatePromotionDto
-  ): Promise<Promotion> {
-    const newPromotion = new this.promotionModel({
-      ...promotionData,
-      created_at: new Date().getTime(),
-      updated_at: new Date().getTime()
-    });
-    return newPromotion.save();
-  }
-
-  private handleDuplicatePromotion(): ApiResponse<null> {
-    return createResponse(
-      'DuplicatedRecord',
-      null,
-      'Promotion with this name already exists'
-    );
-  }
-
-  private handlePromotionResponse(
-    promotion: Promotion | null
-  ): ApiResponse<Promotion> {
-    if (!promotion) {
-      return createResponse('NotFound', null, 'Promotion not found');
-    }
-    return createResponse('OK', promotion, 'Promotion retrieved successfully');
-  }
-
-  private handleError(message: string, error: any): ApiResponse<null> {
-    console.error(message, error);
-    return createResponse(
-      'ServerError',
-      null,
-      'An error occurred while processing your request'
-    );
   }
 }

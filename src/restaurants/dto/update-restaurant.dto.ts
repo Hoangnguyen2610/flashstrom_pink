@@ -1,67 +1,73 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateRestaurantDto } from './create-restaurant.dto';
-import { IsArray, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsObject } from 'class-validator';
 
 export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   @IsString()
-  _id: string;
+  id?: string;
 
   @IsOptional()
   @IsString()
-  owner_id: string;
+  owner_id?: string;
 
   @IsOptional()
   @IsString()
-  owner_name: string;
+  owner_name?: string;
+
+  @IsOptional()
+  address_id?: string;
 
   @IsOptional()
   @IsString()
-  description: string;
+  restaurant_name?: string;
 
   @IsOptional()
   @IsString()
-  address: string;
-
-  @IsOptional()
-  @IsString()
-  restaurant_name: string;
+  description?: string;
 
   @IsOptional()
   @IsArray()
-  contact_email: { title: string; is_default: boolean; email: string }[];
+  contact_email?: { title: string; is_default: boolean; email: string }[];
 
   @IsOptional()
   @IsArray()
-  promotions: string[];
-
-  @IsOptional()
-  @IsArray()
-  contact_phone: { title: string; number: string; is_default: boolean }[];
+  contact_phone?: { title: string; number: string; is_default: boolean }[];
 
   @IsOptional()
   @IsObject()
-  avatar: { url: string; key: string };
-
-  @IsOptional()
-  @IsObject()
-  ratings: { average_rating: number; review_count: number };
+  avatar?: { url: string; key: string };
 
   @IsOptional()
   @IsArray()
-  images_gallery: string[];
+  images_gallery?: string[];
 
   @IsOptional()
   @IsObject()
-  status: { is_open: boolean; is_active: boolean; is_accepted_orders: boolean };
+  status?: {
+    is_open: boolean;
+    is_active: boolean;
+    is_accepted_orders: boolean;
+  };
 
   @IsOptional()
   @IsArray()
-  specialize_in: string[];
+  promotions?: string[];
 
   @IsOptional()
   @IsObject()
-  opening_hours: {
+  ratings?: {
+    average_rating: number;
+    review_count: number;
+  };
+
+  @IsOptional()
+  @IsArray()
+  specialize_in?: string[];
+
+  @IsOptional()
+  @IsObject()
+  opening_hours?: {
     mon: { from: number; to: number };
     tue: { from: number; to: number };
     wed: { from: number; to: number };

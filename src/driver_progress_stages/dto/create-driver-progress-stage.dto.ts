@@ -1,10 +1,96 @@
 import {
   IsString,
   IsArray,
-  IsNumber,
+  IsEnum,
   IsOptional,
-  IsEnum
+  ValidateNested
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class LocationDto {
+  @IsOptional()
+  lat?: number;
+
+  @IsOptional()
+  lng?: number;
+}
+
+class WeatherDto {
+  @IsOptional()
+  temperature?: number;
+
+  @IsOptional()
+  condition?: string;
+}
+
+class StageDetailsDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LocationDto)
+  location?: LocationDto;
+
+  @IsOptional()
+  estimated_time?: number;
+
+  @IsOptional()
+  actual_time?: number;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  tip?: number;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WeatherDto)
+  weather?: WeatherDto;
+}
+
+export class StageDto {
+  @IsString()
+  state: string;
+
+  @IsEnum(['pending', 'completed', 'in_progress', 'failed'])
+  status: 'pending' | 'completed' | 'in_progress' | 'failed';
+
+  @IsOptional()
+  timestamp?: number;
+
+  @IsOptional()
+  duration?: number;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => StageDetailsDto)
+  details?: StageDetailsDto;
+}
+
+class EventDetailsDto {
+  @IsOptional()
+  @ValidateNested()
+  location?: {
+    lat: number;
+    lng: number;
+  };
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+class EventDto {
+  @IsEnum(['driver_start', 'pickup_complete', 'delivery_complete'])
+  event_type: 'driver_start' | 'pickup_complete' | 'delivery_complete';
+
+  event_timestamp: Date;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EventDetailsDto)
+  event_details?: EventDetailsDto;
+}
 
 export class CreateDriverProgressStageDto {
   @IsString()
@@ -19,55 +105,44 @@ export class CreateDriverProgressStageDto {
     'waiting_for_pickup',
     'restaurant_pickup',
     'en_route_to_customer',
-    'customer_delivery',
     'delivery_complete'
   ])
-  current_state: string;
+  current_state:
+    | 'driver_ready'
+    | 'waiting_for_pickup'
+    | 'restaurant_pickup'
+    | 'en_route_to_customer'
+    | 'delivery_complete';
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StageDto)
+  stages?: StageDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EventDto)
+  events?: EventDto[];
 
   @IsOptional()
   @IsString()
   previous_state?: string;
 
   @IsOptional()
-  @IsArray()
-  state_history?: Array<{
-    state: string;
-    status: 'completed' | 'in_progress' | 'failed';
-    timestamp: Date;
-    duration: number;
-    details?: {
-      location?: {
-        lat: number;
-        lng: number;
-      };
-      estimated_time?: number;
-      actual_time?: number;
-      notes?: string;
-      tip?: number;
-      weather?: {
-        temperature?: number;
-        condition?: string;
-      };
-    };
-  }>;
-
-  @IsOptional()
   @IsString()
   next_state?: string;
 
   @IsOptional()
-  @IsNumber()
   estimated_time_remaining?: number;
 
   @IsOptional()
-  @IsNumber()
   actual_time_spent?: number;
 
   @IsOptional()
-  @IsNumber()
   total_distance_travelled?: number;
 
   @IsOptional()
-  @IsNumber()
   total_tips?: number;
 }

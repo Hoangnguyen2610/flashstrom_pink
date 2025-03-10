@@ -1,56 +1,55 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { RestaurantsService } from './restaurants.service';
 import { RestaurantsController } from './restaurants.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { RestaurantSchema } from './restaurants.schema';
-import { UserSchema } from 'src/user/user.schema';
-import { UserModule } from 'src/user/user.module';
-import { PromotionsModule } from 'src/promotions/promotions.module';
-import { AddressBookSchema } from 'src/address_book/address_book.schema';
-import { AddressBook } from 'src/address_book/address_book.module';
-import { MenuItemsService } from 'src/menu_items/menu_items.service';
-import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
-import { MenuItemsModule } from 'src/menu_items/menu_items.module';
-import { FoodCategoriesModule } from 'src/food_categories/food_categories.module';
-import { FoodCategorySchema } from 'src/food_categories/food_categories.schema';
-import { PromotionSchema } from 'src/promotions/promotions.schema';
-import { MenuItemVariantsService } from 'src/menu_item_variants/menu_item_variants.service';
-import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
-import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
 import { RestaurantsGateway } from './restaurants.gateway';
-import { DriverSchema } from 'src/drivers/drivers.schema';
+import { Restaurant } from './entities/restaurant.entity';
+import { RestaurantsRepository } from './restaurants.repository';
 import { DriversModule } from 'src/drivers/drivers.module';
+import { MenuItemsModule } from 'src/menu_items/menu_items.module';
+import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
 import { OrdersModule } from 'src/orders/orders.module';
-import { OrderSchema } from 'src/orders/orders.schema';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { UsersModule } from 'src/users/users.module';
+import { PromotionsModule } from 'src/promotions/promotions.module';
+import { FoodCategoriesModule } from 'src/food_categories/food_categories.module';
+import { AddressBookModule } from 'src/address_book/address_book.module';
+import { AddressBook } from 'src/address_book/entities/address_book.entity';
+import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
+import { CartItemsModule } from 'src/cart_items/cart_items.module';
+import { Order } from 'src/orders/entities/order.entity';
+import { OrdersRepository } from 'src/orders/orders.repository';
+
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: 'Restaurant', schema: RestaurantSchema },
-      { name: 'User', schema: UserSchema },
-      { name: 'Driver', schema: DriverSchema },
-      { name: 'MenuItem', schema: MenuItemSchema },
-      { name: 'MenuItemVariant', schema: MenuItemVariantSchema },
-      { name: 'AddressBook', schema: AddressBookSchema },
-      { name: 'FoodCategory', schema: FoodCategorySchema },
-      { name: 'Promotion', schema: PromotionSchema },
-      { name: 'Order', schema: OrderSchema }
-    ]),
-    UserModule,
+    TypeOrmModule.forFeature([Restaurant, AddressBook, FoodCategory, Order]),
+    UsersModule,
+    AddressBookModule,
     forwardRef(() => DriversModule),
-    MenuItemsModule,
-    PromotionsModule,
-    AddressBook,
-    FoodCategoriesModule,
     forwardRef(() => OrdersModule),
-    MenuItemVariantsModule
+    forwardRef(() => MenuItemsModule),
+    forwardRef(() => MenuItemVariantsModule),
+    forwardRef(() => CartItemsModule),
+    PromotionsModule,
+    FoodCategoriesModule,
+    EventEmitterModule.forRoot()
   ],
   controllers: [RestaurantsController],
   providers: [
     RestaurantsService,
-    MenuItemsService,
-    MenuItemVariantsService,
-    RestaurantsGateway
+    RestaurantsRepository,
+    RestaurantsGateway,
+    AddressBookRepository,
+    FoodCategoriesRepository,
+    OrdersRepository
   ],
-  exports: [RestaurantsService, RestaurantsGateway]
+  exports: [
+    RestaurantsService,
+    RestaurantsRepository,
+    RestaurantsGateway,
+    AddressBookRepository
+  ]
 })
 export class RestaurantsModule {}

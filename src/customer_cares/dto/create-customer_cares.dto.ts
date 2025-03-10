@@ -5,7 +5,7 @@ import {
   IsBoolean,
   IsOptional,
   IsObject,
-  IsNumber,
+  IsNumber
 } from 'class-validator';
 
 export class CreateCustomerCareDto {

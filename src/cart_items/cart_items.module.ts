@@ -1,25 +1,24 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { CartItemsService } from './cart_items.service';
 import { CartItemsController } from './cart_items.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { CustomerSchema } from 'src/customers/customer.schema';
-import { CartItemSchema } from './cart_items.schema'; // Assuming you have the CartItem schema
-import { MenuItemSchema } from 'src/menu_items/menu_items.schema';
-import { MenuItemVariantSchema } from 'src/menu_item_variants/menu_item_variants.schema';
-import { RestaurantSchema } from 'src/restaurants/restaurants.schema';
+import { CartItem } from './entities/cart_item.entity';
+import { CartItemsRepository } from './cart_items.repository';
+import { MenuItemsModule } from 'src/menu_items/menu_items.module';
+import { MenuItemVariantsModule } from 'src/menu_item_variants/menu_item_variants.module';
+import { RestaurantsModule } from 'src/restaurants/restaurants.module';
+import { CustomersModule } from 'src/customers/customers.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: 'Customer', schema: CustomerSchema }, // Injecting Customer schema
-      { name: 'Restaurant', schema: RestaurantSchema }, // Injecting Customer schema
-      { name: 'MenuItem', schema: MenuItemSchema }, // Injecting Customer schema
-      { name: 'MenuItemVariant', schema: MenuItemVariantSchema }, // Injecting Customer schema
-      { name: 'CartItem', schema: CartItemSchema } // Injecting CartItem schema
-    ])
+    TypeOrmModule.forFeature([CartItem]),
+    forwardRef(() => MenuItemsModule),
+    forwardRef(() => MenuItemVariantsModule),
+    forwardRef(() => RestaurantsModule),
+    forwardRef(() => CustomersModule)
   ],
   controllers: [CartItemsController],
-  providers: [CartItemsService],
-  exports: [CartItemsService]
+  providers: [CartItemsService, CartItemsRepository],
+  exports: [CartItemsService, CartItemsRepository]
 })
 export class CartItemsModule {}

@@ -34,6 +34,7 @@ export class JwtAuthGuard implements CanActivate {
       request.user = payload; // Attach the decoded user data to the request
       return true;
     } catch (error) {
+      console.log('error', error);
       return false; // Token verification failed
     }
   }

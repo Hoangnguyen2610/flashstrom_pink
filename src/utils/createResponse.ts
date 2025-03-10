@@ -28,15 +28,7 @@ export function createResponse<T>(
     data
   };
 
-  // If error code indicates an error, throw HttpException
-  if (statusInfo.code < 0 || statusInfo.code >= 2) {
-    return {
-      EC: statusInfo.code,
-      EM: message || statusInfo.message,
-      data: null
-    };
-  }
-
+  // Remove the exception throwing logic and just return the response
   return response;
 }
 

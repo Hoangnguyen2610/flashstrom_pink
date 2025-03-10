@@ -32,4 +32,8 @@ export class CreateTransactionDto {
   @IsString()
   @IsNotEmpty()
   destination: string; // Can be `fwallet.id` or `users.id` depending on the transaction
+
+  @IsEnum(['FWALLET', 'TEMPORARY_WALLET_BALANCE'])
+  @IsNotEmpty()
+  destination_type: 'FWALLET' | 'TEMPORARY_WALLET_BALANCE';
 }
