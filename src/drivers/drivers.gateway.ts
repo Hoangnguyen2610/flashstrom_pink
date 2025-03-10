@@ -456,17 +456,27 @@ export class DriversGateway
               stages: updatedStages as any
             });
 
+          // Lấy orderId từ dps.orders
+          const orderId = dps.orders?.[0]?.id;
+          if (!orderId) {
+            console.warn(`No order found for DPS ${data.stageId}`);
+            return {
+              success: false,
+              message: 'No order associated with this stage'
+            };
+          }
+
+          // Cập nhật trạng thái đơn hàng khi nextState === 'restaurant_pickup'
+          if (nextState === 'restaurant_pickup') {
+            await this.ordersService.updateOrderStatus(
+              orderId,
+              OrderStatus.RESTAURANT_PICKUP
+            );
+            console.log(`Updated order ${orderId} to RESTAURANT_PICKUP`);
+          }
+
           let updatedOrder = null;
           if (nextState === 'delivery_complete') {
-            const orderId = dps.orders?.[0]?.id;
-            if (!orderId) {
-              console.warn(`No order found for DPS ${data.stageId}`);
-              return {
-                success: false,
-                message: 'No order associated with this stage'
-              };
-            }
-
             await transactionalEntityManager
               .createQueryBuilder()
               .delete()
@@ -495,10 +505,7 @@ export class DriversGateway
               );
             }
           } else {
-            const orderId = dps.orders?.[0]?.id;
-            if (orderId) {
-              updatedOrder = await this.ordersService.findOne(orderId);
-            }
+            updatedOrder = await this.ordersService.findOne(orderId);
           }
 
           console.log('check next state', nextState);

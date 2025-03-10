@@ -90,10 +90,17 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   delivery_time?: number; // Timestamp when the order is expected to be delivered (if updated)
 
   @IsOptional()
-  @IsEnum(['ORDER_PLACED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED'])
+  @IsEnum([
+    'ORDER_PLACED',
+    'PREPARING',
+    'RESTAURANT_PICKUP',
+    'OUT_FOR_DELIVERY',
+    'DELIVERED'
+  ])
   tracking_info?:
     | 'ORDER_PLACED'
     | 'PREPARING'
+    | 'RESTAURANT_PICKUP'
     | 'OUT_FOR_DELIVERY'
     | 'DELIVERED'; // Tracking status
 }

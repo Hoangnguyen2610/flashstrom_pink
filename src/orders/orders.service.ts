@@ -176,7 +176,8 @@ export class OrdersService {
       const trackingInfoMap = {
         [OrderStatus.RESTAURANT_ACCEPTED]: OrderTrackingInfo.PREPARING,
         [OrderStatus.IN_PROGRESS]: OrderTrackingInfo.OUT_FOR_DELIVERY,
-        [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED
+        [OrderStatus.DELIVERED]: OrderTrackingInfo.DELIVERED,
+        [OrderStatus.RESTAURANT_PICKUP]: OrderTrackingInfo.RESTAURANT_PICKUP
       };
       const trackingInfo = trackingInfoMap[status];
       if (trackingInfo) {

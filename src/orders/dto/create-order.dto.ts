@@ -81,10 +81,17 @@ export class CreateOrderDto {
   @IsNumber()
   delivery_time: number; // Unix timestamp when the order is expected to be delivered
 
-  @IsEnum(['ORDER_PLACED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED'])
+  @IsEnum([
+    'ORDER_PLACED',
+    'PREPARING',
+    'RESTAURANT_PICKUP',
+    'OUT_FOR_DELIVERY',
+    'DELIVERED'
+  ])
   tracking_info:
     | 'ORDER_PLACED'
     | 'PREPARING'
+    | 'RESTAURANT_PICKUP'
     | 'OUT_FOR_DELIVERY'
     | 'DELIVERED'; // Order tracking status
 }

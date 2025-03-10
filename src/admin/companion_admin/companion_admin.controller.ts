@@ -15,12 +15,21 @@ import { UpdateAdminDto } from '../dto/update-admin.dto';
 import { UpdateRestaurantDto } from '../../restaurants/dto/update-restaurant.dto';
 import { AdminRole } from 'src/utils/types/admin';
 import { CreateRestaurantDto } from 'src/restaurants/dto/create-restaurant.dto';
+import { CreateCustomerDto } from 'src/customers/dto/create-customer.dto';
+import { CreateDriverDto } from 'src/drivers/dto/create-driver.dto';
+import { CreateCustomerCareDto } from 'src/customer_cares/dto/create-customer_cares.dto';
+import { CustomersService } from 'src/customers/customers.service';
+import { DriversService } from 'src/drivers/drivers.service';
+import { CustomerCareService } from 'src/customer_cares/customer_cares.service';
 
 @Controller('companion-admin')
 export class CompanionAdminController {
   constructor(
     private readonly adminService: AdminService,
-    private readonly restaurantService: RestaurantsService
+    private readonly restaurantService: RestaurantsService,
+    private readonly customerService: CustomersService,
+    private readonly driverService: DriversService,
+    private readonly customerCareService: CustomerCareService
   ) {}
 
   // Admin Management Endpoints
@@ -46,6 +55,36 @@ export class CompanionAdminController {
   @Post('/restaurants')
   createRestaurant(@Body() createRestaurantDto: CreateRestaurantDto) {
     return this.restaurantService.create(createRestaurantDto);
+  }
+
+  @Get('/customers')
+  findAllCustomers() {
+    return this.customerService.findAll();
+  }
+
+  @Post('/customers')
+  createCustomer(@Body() createCustomerDto: CreateCustomerDto) {
+    return this.customerService.create(createCustomerDto);
+  }
+
+  @Get('/drivers')
+  findAllDrivers() {
+    return this.driverService.findAll();
+  }
+
+  @Post('/drivers')
+  createDriver(@Body() createDriverDto: CreateDriverDto) {
+    return this.driverService.create(createDriverDto);
+  }
+
+  @Get('/customer-care')
+  findAllCustomerCare() {
+    return this.customerCareService.findAll();
+  }
+
+  @Post('/customer-care')
+  createCustomerCare(@Body() createCustomerCareDto: CreateCustomerCareDto) {
+    return this.customerCareService.create(createCustomerCareDto);
   }
 
   @Get('/:id')

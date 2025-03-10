@@ -19,6 +19,7 @@ import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entit
 export enum OrderTrackingInfo {
   ORDER_PLACED = 'ORDER_PLACED',
   PREPARING = 'PREPARING',
+  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP',
   OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
   DELIVERED = 'DELIVERED'
 }
@@ -28,7 +29,8 @@ export enum OrderStatus {
   RESTAURANT_ACCEPTED = 'RESTAURANT_ACCEPTED',
   IN_PROGRESS = 'IN_PROGRESS',
   DELIVERED = 'DELIVERED',
-  CANCELLED = 'CANCELLED'
+  CANCELLED = 'CANCELLED',
+  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP'
 }
 
 @Entity('orders')
@@ -67,7 +69,8 @@ export class Order {
       'RESTAURANT_ACCEPTED',
       'IN_PROGRESS',
       'DELIVERED',
-      'CANCELLED'
+      'CANCELLED',
+      'RESTAURANT_PICKUP'
     ],
     default: 'PENDING'
   })
@@ -76,7 +79,8 @@ export class Order {
     | 'RESTAURANT_ACCEPTED'
     | 'IN_PROGRESS'
     | 'DELIVERED'
-    | 'CANCELLED';
+    | 'CANCELLED'
+    | 'RESTAURANT_PICKUP';
 
   @Column('decimal')
   total_amount: number;
@@ -138,12 +142,19 @@ export class Order {
 
   @Column({
     type: 'enum',
-    enum: ['ORDER_PLACED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED'],
+    enum: [
+      'ORDER_PLACED',
+      'PREPARING',
+      'RESTAURANT_PICKUP',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED'
+    ],
     default: 'ORDER_PLACED'
   })
   tracking_info:
     | 'ORDER_PLACED'
     | 'PREPARING'
+    | 'RESTAURANT_PICKUP'
     | 'OUT_FOR_DELIVERY'
     | 'DELIVERED';
 
