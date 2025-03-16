@@ -17,7 +17,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 @Injectable()
 export class DriversService {
   constructor(
-    @InjectRepository(Driver)
     private readonly driversRepository: DriversRepository,
     @InjectRepository(Driver)
     private driverEntityRepository: Repository<Driver>,
@@ -53,7 +52,7 @@ export class DriversService {
 
   async findAll(): Promise<ApiResponse<Driver[]>> {
     try {
-      const drivers = await this.driversRepository.findAll();
+      const drivers = await this.driverEntityRepository.find();
       return createResponse('OK', drivers, 'Fetched all drivers');
     } catch (error) {
       return this.handleError('Error fetching drivers:', error);

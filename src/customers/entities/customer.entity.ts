@@ -16,7 +16,6 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { Enum_AppTheme } from 'src/types/Payload';
 import { Order } from 'src/orders/entities/order.entity';
-import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 
 @Entity('customers')
 export class Customer {
@@ -109,9 +108,6 @@ export class Customer {
 
   @OneToMany(() => Order, order => order.customer)
   orders: Order[]; // Quan hệ ngược với Order
-
-  @OneToMany(() => RatingsReview, ratingReview => ratingReview.customer)
-  ratings_reviews: RatingsReview[];
 
   @BeforeInsert()
   generateId() {

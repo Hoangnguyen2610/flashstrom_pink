@@ -41,22 +41,8 @@ export class DriverProgressStage {
   })
   orders: Order[]; // Thay order_ids thành orders
 
-  @Column({
-    type: 'enum',
-    enum: [
-      'driver_ready',
-      'waiting_for_pickup',
-      'restaurant_pickup',
-      'en_route_to_customer',
-      'delivery_complete'
-    ]
-  })
-  current_state:
-    | 'driver_ready'
-    | 'waiting_for_pickup'
-    | 'restaurant_pickup'
-    | 'en_route_to_customer'
-    | 'delivery_complete';
+  @Column({ type: 'varchar', nullable: false, default: 'unknown' })
+  current_state: string;
 
   @Column({ nullable: true })
   previous_state: string;

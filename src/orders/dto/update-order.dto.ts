@@ -1,3 +1,4 @@
+// update-order.dto.ts
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateOrderDto } from './create-order.dto';
 import {
@@ -9,98 +10,123 @@ import {
   IsOptional
 } from 'class-validator';
 
+// Loại bỏ enum thủ công, dùng thẳng từ entity
 export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @IsOptional()
   @IsEnum([
     'PENDING',
     'RESTAURANT_ACCEPTED',
+    'PREPARING',
     'IN_PROGRESS',
+    'READY_FOR_PICKUP',
+    'RESTAURANT_PICKUP',
+    'DISPATCHED',
+    'EN_ROUTE',
+    'OUT_FOR_DELIVERY',
     'DELIVERED',
-    'CANCELLED'
+    'DELIVERY_FAILED'
   ])
-  status?:
+  status:
     | 'PENDING'
     | 'RESTAURANT_ACCEPTED'
+    | 'PREPARING'
     | 'IN_PROGRESS'
+    | 'READY_FOR_PICKUP'
+    | 'RESTAURANT_PICKUP'
+    | 'DISPATCHED'
+    | 'EN_ROUTE'
+    | 'OUT_FOR_DELIVERY'
     | 'DELIVERED'
-    | 'CANCELLED'; // Status of the order
+    | 'DELIVERY_FAILED';
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  distance?: number; // Total amount for the order (if updated)
+  distance?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  total_amount?: number; // Total amount for the order (if updated)
+  total_amount?: number;
 
+  @IsOptional() // Sửa: Thêm @IsOptional() vì nó không bắt buộc trong update
   @IsNumber()
   @Min(0)
-  delivery_fee?: number; // Total amount for the order
+  delivery_fee?: number;
 
+  @IsOptional() // Sửa: Thêm @IsOptional()
   @IsNumber()
   @Min(0)
-  service_fee?: number; // Total amount for the order
+  service_fee?: number;
 
   @IsOptional()
   @IsEnum(['PENDING', 'PAID', 'FAILED'])
-  payment_status?: 'PENDING' | 'PAID' | 'FAILED'; // Payment status (if updated)
+  payment_status?: 'PENDING' | 'PAID' | 'FAILED';
 
   @IsOptional()
   @IsEnum(['COD', 'FWallet'])
-  payment_method?: 'COD' | 'FWallet'; // Payment method (if updated)
+  payment_method?: 'COD' | 'FWallet';
 
   @IsOptional()
   @IsString()
-  customer_location?: string; // Customer address (if updated)
+  customer_location?: string;
 
   @IsOptional()
   @IsString()
-  driver_id?: string; // Driver ID (if updated)
+  driver_id?: string;
 
   @IsOptional()
   @IsString()
-  restaurant_location?: string; // Restaurant address (if updated)
+  restaurant_location?: string;
 
   @IsOptional()
   @IsArray()
   order_items?: Array<{
-    item_id: string; // Menu item ID
-    variant_id: string; // Menu item ID
-    name: string; // Name of the menu item
-    quantity: number; // Quantity of the item
-    price_at_time_of_order: number; // Price at the time of the order
-  }>; // Array of items to update
+    item_id: string;
+    variant_id: string;
+    name: string;
+    quantity: number;
+    price_at_time_of_order: number;
+  }>;
 
   @IsOptional()
   @IsString()
-  customer_note?: string; // Customer note (if updated)
+  customer_note?: string;
 
   @IsOptional()
   @IsString()
-  restaurant_note?: string; // Restaurant note (if updated)
+  restaurant_note?: string;
 
   @IsOptional()
   @IsNumber()
-  order_time?: number; // Timestamp when the order was placed (if updated)
+  order_time?: number;
 
   @IsOptional()
   @IsNumber()
-  delivery_time?: number; // Timestamp when the order is expected to be delivered (if updated)
+  delivery_time?: number;
 
   @IsOptional()
   @IsEnum([
     'ORDER_PLACED',
+    'ORDER_RECEIVED',
     'PREPARING',
+    'IN_PROGRESS',
     'RESTAURANT_PICKUP',
+    'DISPATCHED',
+    'EN_ROUTE',
     'OUT_FOR_DELIVERY',
+    'DELIVERY_FAILED',
     'DELIVERED'
   ])
-  tracking_info?:
+  tracking_info:
     | 'ORDER_PLACED'
+    | 'ORDER_RECEIVED'
     | 'PREPARING'
+    | 'IN_PROGRESS'
     | 'RESTAURANT_PICKUP'
+    | 'DISPATCHED'
+    | 'EN_ROUTE'
     | 'OUT_FOR_DELIVERY'
-    | 'DELIVERED'; // Tracking status
+    | 'DELIVERY_FAILED'
+    | 'DELIVERED';
 }

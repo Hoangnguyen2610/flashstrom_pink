@@ -1,50 +1,102 @@
-import {
-  Entity,
-  Column,
-  PrimaryColumn,
-  BeforeInsert,
-  ManyToOne,
-  JoinColumn
-} from 'typeorm';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { Driver } from 'src/drivers/entities/driver.entity';
+import { Order } from 'src/orders/entities/order.entity';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { v4 as uuidv4 } from 'uuid';
-import { Customer } from 'src/customers/entities/customer.entity'; // Import Customer
-import { Order } from 'src/orders/entities/order.entity'; // Import Order
-import { Restaurant } from 'src/restaurants/entities/restaurant.entity'; // Import Restaurant
-import { Driver } from 'src/drivers/entities/driver.entity'; // Import Driver
+import {
+  BeforeInsert,
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn
+} from 'typeorm';
+import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
 
 @Entity('ratings_reviews')
 export class RatingsReview {
-  @PrimaryColumn({ type: 'varchar' }) // Thêm type cho chắc
+  @PrimaryColumn({ type: 'varchar' })
   id: string;
 
-  @Column()
-  customer_id: string;
+  // Reviewer
+  @Column({ nullable: true })
+  rr_reviewer_driver_id: string;
 
-  @ManyToOne(() => Customer, customer => customer.ratings_reviews) // Ref tới Customer
-  @JoinColumn({ name: 'customer_id' })
-  customer: Customer;
+  @Column({ nullable: true })
+  rr_reviewer_customer_id: string;
 
+  @Column({ nullable: true })
+  rr_reviewer_restaurant_id: string;
+
+  @Column({ nullable: true })
+  rr_reviewer_customercare_id: string;
+
+  @ManyToOne(() => Driver)
+  @JoinColumn({ name: 'rr_reviewer_driver_id' })
+  reviewer_driver: Driver;
+
+  @ManyToOne(() => Customer)
+  @JoinColumn({ name: 'rr_reviewer_customer_id' })
+  reviewer_customer: Customer;
+
+  @ManyToOne(() => Restaurant)
+  @JoinColumn({ name: 'rr_reviewer_restaurant_id' })
+  reviewer_restaurant: Restaurant;
+
+  @ManyToOne(() => CustomerCare)
+  @JoinColumn({ name: 'rr_reviewer_customercare_id' })
+  reviewer_customercare: CustomerCare;
+
+  @Column({
+    type: 'enum',
+    enum: ['driver', 'customer', 'customerCare', 'restaurant']
+  })
+  reviewer_type: string;
+
+  // Recipient
+  @Column({ nullable: true })
+  rr_recipient_driver_id: string;
+
+  @Column({ nullable: true })
+  rr_recipient_customer_id: string;
+
+  @Column({ nullable: true })
+  rr_recipient_restaurant_id: string;
+
+  @Column({ nullable: true })
+  rr_recipient_customercare_id: string;
+
+  @ManyToOne(() => Driver)
+  @JoinColumn({ name: 'rr_recipient_driver_id' })
+  recipient_driver: Driver;
+
+  @ManyToOne(() => Customer)
+  @JoinColumn({ name: 'rr_recipient_customer_id' })
+  recipient_customer: Customer;
+
+  @ManyToOne(() => Restaurant)
+  @JoinColumn({ name: 'rr_recipient_restaurant_id' })
+  recipient_restaurant: Restaurant;
+
+  @ManyToOne(() => CustomerCare)
+  @JoinColumn({ name: 'rr_recipient_customercare_id' })
+  recipient_customercare: CustomerCare;
+
+  @Column({
+    type: 'enum',
+    enum: ['driver', 'customer', 'customerCare', 'restaurant']
+  })
+  recipient_type: string;
+
+  // Order
   @Column()
   order_id: string;
 
-  @ManyToOne(() => Order, order => order.ratings_reviews) // Ref tới Order
+  @ManyToOne(() => Order, order => order.ratings_reviews)
   @JoinColumn({ name: 'order_id' })
   order: Order;
 
-  @Column()
-  restaurant_id: string;
-
-  @ManyToOne(() => Restaurant, restaurant => restaurant.ratings_reviews) // Ref tới Restaurant
-  @JoinColumn({ name: 'restaurant_id' })
-  restaurant: Restaurant;
-
-  @Column()
-  driver_id: string;
-
-  @ManyToOne(() => Driver, driver => driver.ratings_reviews) // Ref tới Driver
-  @JoinColumn({ name: 'driver_id' })
-  driver: Driver;
-
+  // Các cột khác giữ nguyên
   @Column('int')
   food_rating: number;
 

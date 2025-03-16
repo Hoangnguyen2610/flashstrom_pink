@@ -1,16 +1,10 @@
+// orders.repository.ts
 import { Injectable } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Order } from './entities/order.entity';
+import { Order, OrderStatus, OrderTrackingInfo } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { OrderStatus, OrderTrackingInfo } from './entities/order.entity';
-
-type OrderTrackingInfoType =
-  | 'ORDER_PLACED'
-  | 'PREPARING'
-  | 'OUT_FOR_DELIVERY'
-  | 'DELIVERED';
 
 @Injectable()
 export class OrdersRepository {
@@ -20,32 +14,43 @@ export class OrdersRepository {
   ) {}
 
   async create(createDto: CreateOrderDto): Promise<Order> {
-    const order = this.repository.create(createDto);
+    // Fix: Ép kiểu status và tracking_info cho khớp
+    const orderData = {
+      ...createDto,
+      status: createDto.status as OrderStatus,
+      tracking_info: createDto.tracking_info as OrderTrackingInfo
+    };
+    const order = this.repository.create(orderData);
     return await this.repository.save(order);
   }
 
   async findAll(): Promise<Order[]> {
-    return await this.repository.find();
+    return await this.repository.find(); // Đã đúng, không cần sửa
   }
 
   async findById(id: string): Promise<Order> {
     const result = await this.repository.findOne({
       where: { id },
-      relations: ['restaurantAddress', 'customerAddress'] // Populate quan hệ restaurantAddress
+      relations: ['restaurantAddress', 'customerAddress']
     });
     return result;
   }
 
   async findOne(conditions: object): Promise<Order> {
-    // Thêm method này
     return await this.repository.findOne({ where: conditions });
   }
 
   async update(id: string, updateDto: UpdateOrderDto): Promise<Order> {
-    await this.repository.update(id, {
+    // Fix: Ép kiểu status và tracking_info nếu có
+    const updateData = {
       ...updateDto,
+      status: updateDto.status ? (updateDto.status as OrderStatus) : undefined,
+      tracking_info: updateDto.tracking_info
+        ? (updateDto.tracking_info as OrderTrackingInfo)
+        : undefined,
       updated_at: Math.floor(Date.now() / 1000)
-    });
+    };
+    await this.repository.update(id, updateData);
     return await this.findById(id);
   }
 
@@ -73,8 +78,9 @@ export class OrdersRepository {
     id: string,
     tracking_info: OrderTrackingInfo
   ): Promise<Order> {
+    // Fix: Bỏ OrderTrackingInfoType, dùng thẳng OrderTrackingInfo
     await this.repository.update(id, {
-      tracking_info: tracking_info as OrderTrackingInfoType,
+      tracking_info, // Không cần ép kiểu nữa, đã là OrderTrackingInfo
       updated_at: Math.floor(Date.now() / 1000)
     });
     return this.findById(id);

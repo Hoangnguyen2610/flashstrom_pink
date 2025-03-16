@@ -4,9 +4,21 @@ import { RatingsReviewsService } from './ratings_reviews.service';
 import { RatingsReviewsController } from './ratings_reviews.controller';
 import { RatingsReview } from './entities/ratings_review.entity';
 import { RatingsReviewsRepository } from './ratings_reviews.repository';
+import { Order } from 'src/orders/entities/order.entity';
+import { Driver } from 'src/drivers/entities/driver.entity';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([RatingsReview])],
+  imports: [
+    TypeOrmModule.forFeature([
+      RatingsReview,
+      Order,
+      Driver,
+      Customer,
+      Restaurant
+    ])
+  ],
   controllers: [RatingsReviewsController],
   providers: [RatingsReviewsService, RatingsReviewsRepository],
   exports: [RatingsReviewsService, RatingsReviewsRepository]

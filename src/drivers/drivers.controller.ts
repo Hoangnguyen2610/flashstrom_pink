@@ -10,7 +10,6 @@ import {
 import { DriversService } from './drivers.service'; // Corrected to use DriversService
 import { CreateDriverDto } from './dto/create-driver.dto'; // Corrected to use CreateDriverDto
 import { UpdateDriverDto } from './dto/update-driver.dto'; // Corrected to use UpdateDriverDto
-import { createResponse } from 'src/utils/createResponse';
 
 @Controller('drivers') // Updated route to 'drivers'
 export class DriversController {

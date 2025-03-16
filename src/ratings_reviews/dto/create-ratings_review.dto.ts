@@ -4,22 +4,48 @@ import {
   IsOptional,
   IsArray,
   Min,
-  Max
+  Max,
+  IsEnum
 } from 'class-validator';
 
 export class CreateRatingsReviewDto {
+  // Reviewer (có thể là driver, customer, hoặc restaurant)
   @IsString()
-  customer_id: string;
+  @IsOptional()
+  rr_reviewer_driver_id?: string;
 
+  @IsString()
+  @IsOptional()
+  rr_reviewer_customer_id?: string;
+
+  @IsString()
+  @IsOptional()
+  rr_reviewer_restaurant_id?: string;
+
+  @IsEnum(['driver', 'customer', 'customerCare', 'restaurant'])
+  reviewer_type: string;
+
+  // Recipient (có thể là driver, customer, hoặc restaurant)
+  @IsString()
+  @IsOptional()
+  rr_recipient_driver_id?: string;
+
+  @IsString()
+  @IsOptional()
+  rr_recipient_customer_id?: string;
+
+  @IsString()
+  @IsOptional()
+  rr_recipient_restaurant_id?: string;
+
+  @IsEnum(['driver', 'customer', 'customerCare', 'restaurant'])
+  recipient_type: string;
+
+  // Order
   @IsString()
   order_id: string;
 
-  @IsString()
-  restaurant_id: string;
-
-  @IsString()
-  driver_id: string;
-
+  // Ratings and reviews
   @IsNumber()
   @Min(1)
   @Max(5)

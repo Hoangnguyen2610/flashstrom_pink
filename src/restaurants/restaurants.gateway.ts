@@ -1,3 +1,4 @@
+// restaurants.gateway.ts
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -16,8 +17,10 @@ import { forwardRef, Inject } from '@nestjs/common';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { Type_Delivery_Order } from 'src/types/Driver';
 import { calculateDistance } from 'src/utils/commonFunctions';
-import { OrderStatus } from 'src/orders/entities/order.entity';
-import { OrderTrackingInfo } from 'src/orders/entities/order.entity';
+import {
+  OrderStatus,
+  OrderTrackingInfo
+} from 'src/orders/entities/order.entity';
 import { WsResponse } from '@nestjs/websockets';
 import { OrdersRepository } from 'src/orders/orders.repository';
 
@@ -29,7 +32,7 @@ interface AvailableDriver {
 
 interface RestaurantAcceptData {
   availableDrivers: AvailableDriver[];
-  orderDetails: string;
+  orderDetails: string; // orderId
 }
 
 @WebSocketGateway({
@@ -105,12 +108,9 @@ export class RestaurantsGateway
 
   @SubscribeMessage('newOrderForRestaurant')
   async handleNewOrder(@MessageBody() order: any) {
-    const restaurantId = await order.restaurant_id;
+    const restaurantId = order.restaurant_id;
 
-    // Add this log to verify the room name matches
     console.log('Emitting to room:', `restaurant_${restaurantId}`);
-
-    // Update the room name to match the join format
     await this.server
       .to(`restaurant_${restaurantId}`)
       .emit('incomingOrder', order);
@@ -125,7 +125,6 @@ export class RestaurantsGateway
     try {
       const { availableDrivers, orderDetails: orderId } = data;
 
-      // Fetch the full order details using the ID
       const fullOrderDetails =
         await this.restaurantsService.getOrderById(orderId);
       if (!fullOrderDetails) {
@@ -135,11 +134,11 @@ export class RestaurantsGateway
         };
       }
 
-      // Update order status
-      await this.restaurantsService.updateOrderStatus(
-        orderId,
-        OrderStatus.RESTAURANT_ACCEPTED
-      );
+      // Update order status to RESTAURANT_ACCEPTED and tracking to ORDER_RECEIVED
+      await this.ordersRepository.update(orderId, {
+        status: OrderStatus.RESTAURANT_ACCEPTED,
+        tracking_info: OrderTrackingInfo.ORDER_RECEIVED
+      });
 
       const mappedDrivers = availableDrivers.map(item => ({
         id: item.id,
@@ -170,7 +169,7 @@ export class RestaurantsGateway
             location: { lat: number; lng: number };
           };
         console.log(
-          'check fullorde details',
+          'check fullorder details',
           fullOrderDetails,
           'driver cus location',
           customer_location?.location,
@@ -184,27 +183,34 @@ export class RestaurantsGateway
           res_location?.location?.lng ?? 0
         );
 
+        // Update order với driver_id, distance, và trạng thái PREPARING
         const orderAssignment = {
           ...fullOrderDetails,
           driver_id: selectedDriver.id,
           driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
-          tracking_info: OrderTrackingInfo.PREPARING,
-          status: OrderStatus.RESTAURANT_ACCEPTED,
+          tracking_info: OrderTrackingInfo.PREPARING, // Khi assign driver thì bắt đầu chuẩn bị
+          status: OrderStatus.PREPARING, // Nhà hàng bắt đầu chuẩn bị
           distance: distance
         };
+        console.log('orderAssignment', orderAssignment);
         const orderWithDistance = await this.ordersRepository.update(orderId, {
-          distance: +distance
+          driver_id: selectedDriver.id,
+          distance: +distance,
+          status: OrderStatus.PREPARING,
+          tracking_info: OrderTrackingInfo.PREPARING
         });
         console.log('orderAssignment', orderWithDistance);
 
-        await this.notifyPartiesOnce(orderAssignment);
+        await this.eventEmitter.emit(
+          'order.assignedToDriver',
+          orderWithDistance
+        );
 
-        // Emit only once
-        await this.eventEmitter.emit('order.assignedToDriver', orderAssignment);
+        await this.notifyPartiesOnce(orderWithDistance);
 
         return {
           event: 'orderAssigned',
-          data: orderAssignment
+          data: orderWithDistance
         };
       }
 
@@ -224,8 +230,6 @@ export class RestaurantsGateway
   @OnEvent('incomingOrder')
   async handleIncomingOrder(@MessageBody() order: any) {
     console.log('Received incomingOrder event:', order);
-
-    // Return the response that will be visible in Postman
     return {
       event: 'incomingOrder',
       data: order,
@@ -235,19 +239,16 @@ export class RestaurantsGateway
 
   async emitOrderStatusUpdate(order: any) {
     try {
-      // Emit to restaurant room
       this.server
         .to(`restaurant_${order.restaurant_id}`)
         .emit('orderStatusUpdated', order);
 
-      // Emit to customer room if needed
       if (order.customer_id) {
         this.server
           .to(`customer_${order.customer_id}`)
           .emit('orderStatusUpdated', order);
       }
 
-      // Emit to driver room if assigned
       if (order.driver_id) {
         this.server
           .to(`driver_${order.driver_id}`)
@@ -262,13 +263,13 @@ export class RestaurantsGateway
 
   @OnEvent('orderTrackingUpdate')
   async handleOrderTrackingUpdate(@MessageBody() order: any) {
-    // Return the response that will be visible in Postman
     return {
       event: 'orderTrackingUpdate',
       data: order,
       message: `orderTrackingUpdate: ${order}`
     };
   }
+
   @OnEvent('listenUpdateOrderTracking')
   async handleListenUpdateOrderTracking(@MessageBody() order: any) {
     await this.server
@@ -278,7 +279,6 @@ export class RestaurantsGateway
         data: order,
         message: 'Order received successfully'
       });
-    // Return the response that will be visible in Postman
     return {
       event: 'listenUpdateOrderTracking',
       data: order,
@@ -305,12 +305,46 @@ export class RestaurantsGateway
         restaurant_id: order.restaurant_id
       };
       console.log('trackingUpdate', trackingUpdate);
-      this.eventEmitter.emit('restaurantPreparingOrder', trackingUpdate);
+
+      // Emit event theo trạng thái
+      if (order.status === OrderStatus.RESTAURANT_ACCEPTED) {
+        this.eventEmitter.emit('restaurantOrderAccepted', trackingUpdate);
+      } else if (order.status === OrderStatus.PREPARING) {
+        this.eventEmitter.emit('restaurantPreparingOrder', trackingUpdate);
+      } else if (order.status === OrderStatus.READY_FOR_PICKUP) {
+        this.eventEmitter.emit('restaurantOrderReady', trackingUpdate);
+      }
+
       console.log(
-        `Emitted restaurantPreparingOrder via EventEmitter for order ${order.id}`
+        `Emitted event for order ${order.id} with status ${order.status}`
       );
     } finally {
       this.notificationLock.delete(notifyKey);
+    }
+  }
+
+  // Thêm handler cho READY_FOR_PICKUP nếu cần
+  @SubscribeMessage('restaurantOrderReady')
+  async handleRestaurantOrderReady(@MessageBody() data: { orderId: string }) {
+    try {
+      const { orderId } = data;
+      const order = await this.ordersRepository.update(orderId, {
+        status: OrderStatus.READY_FOR_PICKUP,
+        tracking_info: OrderTrackingInfo.RESTAURANT_PICKUP
+      });
+
+      await this.notifyPartiesOnce(order);
+
+      return {
+        event: 'orderReadyForPickup',
+        data: order
+      };
+    } catch (error) {
+      console.error('Error in handleRestaurantOrderReady:', error);
+      return {
+        event: 'error',
+        data: { message: 'Internal server error' }
+      };
     }
   }
 }

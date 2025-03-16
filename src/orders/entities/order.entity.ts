@@ -1,3 +1,4 @@
+// order.entity.ts
 import {
   Entity,
   Column,
@@ -11,26 +12,40 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { Driver } from 'src/drivers/entities/driver.entity';
-import { Restaurant } from 'src/restaurants/entities/restaurant.entity'; // Import Restaurant
-import { AddressBook } from 'src/address_book/entities/address_book.entity'; // Import AddressBook
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { Customer } from 'src/customers/entities/customer.entity';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 
 export enum OrderTrackingInfo {
-  ORDER_PLACED = 'ORDER_PLACED',
-  PREPARING = 'PREPARING',
-  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP',
-  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
-  DELIVERED = 'DELIVERED'
+  ORDER_PLACED = 'ORDER_PLACED', // Đặt hàng
+  ORDER_RECEIVED = 'ORDER_RECEIVED', // Đơn hàng đã được tiếp nhận
+  PREPARING = 'PREPARING', // Đang chuẩn bị món ăn
+  IN_PROGRESS = 'IN_PROGRESS', // Đang tiến hành chuẩn bị
+  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP', // Món ăn đã sẵn sàng tại nhà hàng
+  DISPATCHED = 'DISPATCHED', // Đơn hàng đã được giao cho tài xế
+  EN_ROUTE = 'EN_ROUTE', // Tài xế đang trên đường giao
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY', // Đang giao hàng
+  DELIVERY_FAILED = 'DELIVERY_FAILED', // Giao hàng thất bại
+  DELIVERED = 'DELIVERED', // Giao hàng thành công
+  CANCELLED = 'CANCELLED', // Đơn hàng đã bị hủy
+  RETURNED = 'RETURNED' // Đơn hàng đã được trả lại
 }
 
 export enum OrderStatus {
-  PENDING = 'PENDING',
-  RESTAURANT_ACCEPTED = 'RESTAURANT_ACCEPTED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  DELIVERED = 'DELIVERED',
-  CANCELLED = 'CANCELLED',
-  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP'
+  PENDING = 'PENDING', // Đơn hàng đang chờ xử lý
+  RESTAURANT_ACCEPTED = 'RESTAURANT_ACCEPTED', // Nhà hàng đã nhận đơn
+  PREPARING = 'PREPARING', // Nhà hàng bắt đầu chuẩn bị
+  IN_PROGRESS = 'IN_PROGRESS', // Đang chuẩn bị
+  READY_FOR_PICKUP = 'READY_FOR_PICKUP', // Món ăn sẵn sàng để giao
+  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP', // Đã giao cho tài xế
+  DISPATCHED = 'DISPATCHED', // Tài xế nhận đơn và chuẩn bị giao
+  EN_ROUTE = 'EN_ROUTE', // Tài xế đang trên đường
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY', // Đơn hàng đang giao
+  DELIVERED = 'DELIVERED', // Giao thành công
+  CANCELLED = 'CANCELLED', // Đơn bị hủy
+  RETURNED = 'RETURNED', // Đơn bị trả lại
+  DELIVERY_FAILED = 'DELIVERY_FAILED' // Giao thất bại
 }
 
 @Entity('orders')
@@ -41,14 +56,14 @@ export class Order {
   @Column()
   customer_id: string;
 
-  @ManyToOne(() => Customer, customer => customer.orders) // Ref tới Customer
+  @ManyToOne(() => Customer, customer => customer.orders)
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 
   @Column()
   restaurant_id: string;
 
-  @ManyToOne(() => Restaurant, restaurant => restaurant.orders) // Ref tới Restaurant
+  @ManyToOne(() => Restaurant, restaurant => restaurant.orders)
   @JoinColumn({ name: 'restaurant_id' })
   restaurant: Restaurant;
 
@@ -58,29 +73,16 @@ export class Order {
   @Column({ nullable: true, type: 'decimal' })
   distance: number;
 
-  @ManyToOne(() => Driver, driver => driver.orders) // Ref tới Driver
+  @ManyToOne(() => Driver, driver => driver.orders)
   @JoinColumn({ name: 'driver_id' })
   driver: Driver;
 
   @Column({
     type: 'enum',
-    enum: [
-      'PENDING',
-      'RESTAURANT_ACCEPTED',
-      'IN_PROGRESS',
-      'DELIVERED',
-      'CANCELLED',
-      'RESTAURANT_PICKUP'
-    ],
-    default: 'PENDING'
+    enum: OrderStatus,
+    default: OrderStatus.PENDING
   })
-  status:
-    | 'PENDING'
-    | 'RESTAURANT_ACCEPTED'
-    | 'IN_PROGRESS'
-    | 'DELIVERED'
-    | 'CANCELLED'
-    | 'RESTAURANT_PICKUP';
+  status: OrderStatus;
 
   @Column('decimal')
   total_amount: number;
@@ -108,14 +110,14 @@ export class Order {
   @Column()
   customer_location: string;
 
-  @ManyToOne(() => AddressBook, address => address.customer_orders) // Ref tới AddressBook cho customer
+  @ManyToOne(() => AddressBook, address => address.customer_orders)
   @JoinColumn({ name: 'customer_location' })
   customerAddress: AddressBook;
 
   @Column()
   restaurant_location: string;
 
-  @ManyToOne(() => AddressBook, address => address.restaurant_orders) // Ref tới AddressBook cho restaurant
+  @ManyToOne(() => AddressBook, address => address.restaurant_orders)
   @JoinColumn({ name: 'restaurant_location' })
   restaurantAddress: AddressBook;
 
@@ -142,21 +144,10 @@ export class Order {
 
   @Column({
     type: 'enum',
-    enum: [
-      'ORDER_PLACED',
-      'PREPARING',
-      'RESTAURANT_PICKUP',
-      'OUT_FOR_DELIVERY',
-      'DELIVERED'
-    ],
-    default: 'ORDER_PLACED'
+    enum: OrderTrackingInfo,
+    default: OrderTrackingInfo.ORDER_PLACED
   })
-  tracking_info:
-    | 'ORDER_PLACED'
-    | 'PREPARING'
-    | 'RESTAURANT_PICKUP'
-    | 'OUT_FOR_DELIVERY'
-    | 'DELIVERED';
+  tracking_info: OrderTrackingInfo;
 
   @Column()
   created_at: number;
@@ -174,7 +165,7 @@ export class Order {
   drivers: Driver[];
 
   @OneToMany(() => RatingsReview, ratingReview => ratingReview.order)
-  ratings_reviews: RatingsReview[]; // Quan hệ ngược với RatingsReview
+  ratings_reviews: RatingsReview[];
 
   @BeforeInsert()
   generateId() {

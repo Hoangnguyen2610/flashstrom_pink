@@ -3,15 +3,96 @@ import { CreateRatingsReviewDto } from './dto/create-ratings_review.dto';
 import { UpdateRatingsReviewDto } from './dto/update-ratings_review.dto';
 import { RatingsReviewsRepository } from './ratings_reviews.repository';
 import { createResponse } from 'src/utils/createResponse';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Order } from 'src/orders/entities/order.entity';
+import { Driver } from 'src/drivers/entities/driver.entity';
+import { Customer } from 'src/customers/entities/customer.entity';
+import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 
 @Injectable()
 export class RatingsReviewsService {
   constructor(
-    private readonly ratingsReviewsRepository: RatingsReviewsRepository
+    private readonly ratingsReviewsRepository: RatingsReviewsRepository,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
+    @InjectRepository(Driver)
+    private readonly driverRepository: Repository<Driver>,
+    @InjectRepository(Customer)
+    private readonly customerRepository: Repository<Customer>,
+    @InjectRepository(Restaurant)
+    private readonly restaurantRepository: Repository<Restaurant>
   ) {}
 
   async create(createRatingsReviewDto: CreateRatingsReviewDto) {
     try {
+      // Validate Order
+      const order = await this.orderRepository.findOne({
+        where: { id: createRatingsReviewDto.order_id }
+      });
+      if (!order) {
+        return createResponse('NotFound', null, 'Order not found');
+      }
+
+      // Validate Reviewer
+      let reviewerExists = false;
+      switch (createRatingsReviewDto.reviewer_type) {
+        case 'driver':
+          reviewerExists = !!(await this.driverRepository.findOne({
+            where: { id: createRatingsReviewDto.rr_reviewer_driver_id }
+          }));
+          break;
+        case 'customer':
+          reviewerExists = !!(await this.customerRepository.findOne({
+            where: { id: createRatingsReviewDto.rr_reviewer_customer_id }
+          }));
+          break;
+        case 'restaurant':
+          reviewerExists = !!(await this.restaurantRepository.findOne({
+            where: { id: createRatingsReviewDto.rr_reviewer_restaurant_id }
+          }));
+          break;
+        default:
+          return createResponse(
+            'InvalidFormatInput',
+            null,
+            'Invalid reviewer_type'
+          );
+      }
+      if (!reviewerExists) {
+        return createResponse('NotFound', null, 'Reviewer not found');
+      }
+
+      // Validate Recipient
+      let recipientExists = false;
+      switch (createRatingsReviewDto.recipient_type) {
+        case 'driver':
+          recipientExists = !!(await this.driverRepository.findOne({
+            where: { id: createRatingsReviewDto.rr_recipient_driver_id }
+          }));
+          break;
+        case 'customer':
+          recipientExists = !!(await this.customerRepository.findOne({
+            where: { id: createRatingsReviewDto.rr_recipient_customer_id }
+          }));
+          break;
+        case 'restaurant':
+          recipientExists = !!(await this.restaurantRepository.findOne({
+            where: { id: createRatingsReviewDto.rr_recipient_restaurant_id }
+          }));
+          break;
+        default:
+          return createResponse(
+            'InvalidFormatInput',
+            null,
+            'Invalid recipient_type'
+          );
+      }
+      if (!recipientExists) {
+        return createResponse('NotFound', null, 'Recipient not found');
+      }
+
+      // Tạo review
       const newReview = await this.ratingsReviewsRepository.create(
         createRatingsReviewDto
       );
@@ -47,13 +128,110 @@ export class RatingsReviewsService {
 
   async update(id: string, updateRatingsReviewDto: UpdateRatingsReviewDto) {
     try {
+      // Lấy review hiện tại
+      const existingReview = await this.ratingsReviewsRepository.findById(id);
+      if (!existingReview) {
+        return createResponse('NotFound', null, 'Review not found');
+      }
+
+      // Validate Order nếu có thay đổi
+      if (updateRatingsReviewDto.order_id) {
+        const order = await this.orderRepository.findOne({
+          where: { id: updateRatingsReviewDto.order_id }
+        });
+        if (!order) {
+          return createResponse('NotFound', null, 'Order not found');
+        }
+      }
+
+      // Validate Reviewer nếu có thay đổi
+      if (
+        updateRatingsReviewDto.reviewer_type &&
+        (updateRatingsReviewDto.rr_reviewer_driver_id ||
+          updateRatingsReviewDto.rr_reviewer_customer_id ||
+          updateRatingsReviewDto.rr_reviewer_restaurant_id)
+      ) {
+        let reviewerExists = false;
+        switch (updateRatingsReviewDto.reviewer_type) {
+          case 'driver':
+            reviewerExists = !!(await this.driverRepository.findOne({
+              where: { id: updateRatingsReviewDto.rr_reviewer_driver_id }
+            }));
+            break;
+          case 'customer':
+            reviewerExists = !!(await this.customerRepository.findOne({
+              where: { id: updateRatingsReviewDto.rr_reviewer_customer_id }
+            }));
+            break;
+          case 'restaurant':
+            reviewerExists = !!(await this.restaurantRepository.findOne({
+              where: { id: updateRatingsReviewDto.rr_reviewer_restaurant_id }
+            }));
+            break;
+          default:
+            return createResponse(
+              'InvalidFormatInput',
+              null,
+              'Invalid reviewer_type'
+            );
+        }
+        if (!reviewerExists) {
+          return createResponse('NotFound', null, 'Reviewer not found');
+        }
+      }
+
+      // Validate Recipient nếu có thay đổi
+      if (
+        updateRatingsReviewDto.recipient_type &&
+        (updateRatingsReviewDto.rr_recipient_driver_id ||
+          updateRatingsReviewDto.rr_recipient_customer_id ||
+          updateRatingsReviewDto.rr_recipient_restaurant_id)
+      ) {
+        let recipientExists = false;
+        switch (updateRatingsReviewDto.recipient_type) {
+          case 'driver':
+            recipientExists = !!(await this.driverRepository.findOne({
+              where: { id: updateRatingsReviewDto.rr_recipient_driver_id }
+            }));
+            break;
+          case 'customer':
+            recipientExists = !!(await this.customerRepository.findOne({
+              where: { id: updateRatingsReviewDto.rr_recipient_customer_id }
+            }));
+            break;
+          case 'restaurant':
+            recipientExists = !!(await this.restaurantRepository.findOne({
+              where: { id: updateRatingsReviewDto.rr_recipient_restaurant_id }
+            }));
+            break;
+          default:
+            return createResponse(
+              'InvalidFormatInput',
+              null,
+              'Invalid recipient_type'
+            );
+        }
+        if (!recipientExists) {
+          return createResponse('NotFound', null, 'Recipient not found');
+        }
+      }
+
+      // Xử lý images (gộp hoặc thay thế tùy logic)
+      if (updateRatingsReviewDto.images) {
+        updateRatingsReviewDto.images = updateRatingsReviewDto.images.length
+          ? [...(existingReview.images || []), ...updateRatingsReviewDto.images] // Gộp nếu muốn giữ ảnh cũ
+          : updateRatingsReviewDto.images; // Thay thế nếu gửi mảng rỗng hoặc mới
+      }
+
+      // Cập nhật thời gian nếu không có trong DTO
+      updateRatingsReviewDto.updated_at =
+        updateRatingsReviewDto.updated_at || Math.floor(Date.now() / 1000);
+
+      // Cập nhật review
       const updatedReview = await this.ratingsReviewsRepository.update(
         id,
         updateRatingsReviewDto
       );
-      if (!updatedReview) {
-        return createResponse('NotFound', null, 'Review not found');
-      }
       return createResponse('OK', updatedReview, 'Review updated successfully');
     } catch (error) {
       console.error('Error updating review:', error);

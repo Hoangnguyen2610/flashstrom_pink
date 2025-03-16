@@ -98,19 +98,8 @@ export class CreateDriverProgressStageDto {
   @Type(() => Order)
   orders: Order[];
 
-  @IsEnum([
-    'driver_ready',
-    'waiting_for_pickup',
-    'restaurant_pickup',
-    'en_route_to_customer',
-    'delivery_complete'
-  ])
-  current_state:
-    | 'driver_ready'
-    | 'waiting_for_pickup'
-    | 'restaurant_pickup'
-    | 'en_route_to_customer'
-    | 'delivery_complete';
+  @IsString()
+  current_state: string;
 
   @IsOptional()
   @IsArray()

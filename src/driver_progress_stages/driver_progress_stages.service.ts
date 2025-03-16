@@ -21,6 +21,8 @@ export class DriverProgressStagesService {
     private readonly ordersRepository: OrdersRepository,
     private readonly dataSource: DataSource
   ) {}
+
+  // driver_progress_stages.service.ts (chỉ fix create)
   async create(
     createDto: CreateDriverProgressStageDto,
     transactionalEntityManager?: EntityManager
@@ -28,22 +30,21 @@ export class DriverProgressStagesService {
     const manager = transactionalEntityManager || this.dataSource.manager;
 
     try {
-      // Tạo stages cho tất cả orders
       const initialStages = this.generateStagesForOrders(createDto.orders);
 
-      // Tạo DPS
       const dps = manager.create(DriverProgressStage, {
         ...createDto,
         stages: initialStages,
         events: [],
         created_at: Math.floor(Date.now() / 1000),
-        updated_at: Math.floor(Date.now() / 1000)
+        updated_at: Math.floor(Date.now() / 1000),
+        orders: createDto.orders // Gán orders trực tiếp vào entity
       });
 
       const savedStage = await manager.save(DriverProgressStage, dps);
       console.log(`DPS saved in driverProgressStageService: ${savedStage.id}`);
 
-      // Thêm quan hệ vào driver_progress_orders, kiểm tra trước khi chèn
+      // Kiểm tra và lưu quan hệ trong bảng trung gian nếu cần
       if (createDto.orders && createDto.orders.length > 0) {
         for (const order of createDto.orders) {
           const exists = await manager
@@ -72,22 +73,30 @@ export class DriverProgressStagesService {
             console.log(
               `Saved order relation for DPS: ${savedStage.id}, order: ${order.id}`
             );
-          } else {
-            console.log(
-              `Relation already exists for DPS: ${savedStage.id}, order: ${order.id}`
-            );
           }
         }
       }
 
+      // Tải lại DPS với quan hệ orders để chắc chắn
+      const finalDps = await manager
+        .getRepository(DriverProgressStage)
+        .findOne({
+          where: { id: savedStage.id },
+          relations: ['orders']
+        });
+
       return createResponse(
         'OK',
-        savedStage,
+        finalDps,
         'Driver progress stage created successfully'
       );
     } catch (err) {
       console.error('Error creating driver progress stage:', err);
-      throw err; // Đảm bảo rollback
+      return createResponse(
+        'ServerError',
+        null,
+        'Error creating driver progress stage'
+      );
     }
   }
 
@@ -97,7 +106,7 @@ export class DriverProgressStagesService {
     transactionalEntityManager: EntityManager
   ): Promise<ApiResponse<DriverProgressStage>> {
     try {
-      // Lấy DPS hiện tại
+      console.log('🔍 Fetching DPS with id:', dpsId);
       const dps = await transactionalEntityManager
         .getRepository(DriverProgressStage)
         .findOne({
@@ -105,31 +114,35 @@ export class DriverProgressStagesService {
           relations: ['orders']
         });
       if (!dps) {
+        console.log('❌ DPS not found:', dpsId);
         throw new Error('DPS not found');
       }
+      console.log('✅ DPS found:', dps.id, 'with orders:', dps.orders?.length);
 
-      // Thêm order mới vào danh sách orders nếu chưa tồn tại
       dps.orders = dps.orders || [];
       if (!dps.orders.some(o => o.id === order.id)) {
         dps.orders.push(order);
+        console.log('✅ Added new order to DPS:', order.id);
+      } else {
+        console.log('⚠️ Order already exists in DPS:', order.id);
       }
 
-      // Mở rộng stages cho order mới
+      // Tạo stages mới, tất cả đều pending
       const newStages = this.generateStagesForOrders(
         [order],
-        dps.orders.length
+        dps.orders.length,
+        false
       );
       dps.stages = [...dps.stages, ...newStages];
       dps.updated_at = Math.floor(Date.now() / 1000);
+      console.log('📋 New stages added:', JSON.stringify(newStages, null, 2));
 
-      // Lưu DPS đã cập nhật
       const updatedDPS = await transactionalEntityManager.save(
         DriverProgressStage,
         dps
       );
       console.log(`Updated DPS with new order: ${updatedDPS.id}`);
 
-      // Kiểm tra và thêm quan hệ vào driver_progress_orders
       const exists = await transactionalEntityManager
         .createQueryBuilder()
         .select('1')
@@ -162,13 +175,14 @@ export class DriverProgressStagesService {
       return createResponse('OK', updatedDPS, 'Order added to existing DPS');
     } catch (err) {
       console.error('Error adding order to DPS:', err);
-      throw err; // Đảm bảo rollback transaction nếu lỗi
+      throw err;
     }
   }
 
   private generateStagesForOrders(
     orders: Order[],
-    startIndex: number = 1
+    startIndex = 1,
+    setFirstInProgress: boolean = true // Thêm tham số để kiểm soát
   ): StageDto[] {
     const baseStates = [
       'driver_ready',
@@ -182,12 +196,16 @@ export class DriverProgressStagesService {
     orders.forEach((order, index) => {
       const orderIndex = startIndex + index;
       baseStates.forEach((state, stateIndex) => {
+        const isFirstStageOfFirstOrder = stateIndex === 0 && index === 0;
         stages.push({
           state: `${state}_order_${orderIndex}`,
-          status: stateIndex === 0 && index === 0 ? 'in_progress' : 'pending',
+          status:
+            isFirstStageOfFirstOrder && setFirstInProgress
+              ? 'in_progress'
+              : 'pending',
           timestamp: Math.floor(Date.now() / 1000),
           duration: 0,
-          details: null // Hoặc { location: null, ... } nếu muốn giữ cấu trúc đầy đủ
+          details: null
         });
       });
     });
@@ -196,13 +214,16 @@ export class DriverProgressStagesService {
 
   async updateStage(
     stageId: string,
-    updateData: UpdateDriverProgressStageDto,
+    updateData: UpdateDriverProgressStageDto & {
+      previous_state?: string | null;
+      next_state?: string | null;
+    },
     transactionalEntityManager?: EntityManager
   ): Promise<ApiResponse<DriverProgressStage>> {
     try {
       console.log('🔍 Updating stage:', stageId, 'with data:', updateData);
 
-      const manager = transactionalEntityManager || this.dataSource.manager; // Sửa ở đây
+      const manager = transactionalEntityManager || this.dataSource.manager;
 
       const existingStage = await manager
         .getRepository(DriverProgressStage)
@@ -211,12 +232,14 @@ export class DriverProgressStagesService {
         return createResponse('NotFound', null, 'Progress stage not found');
       }
 
-      // Only update the current_state and stages array
       const updatedStage = await manager
         .getRepository(DriverProgressStage)
         .save({
           ...existingStage,
           current_state: updateData.current_state,
+          previous_state:
+            updateData.previous_state ?? existingStage.previous_state,
+          next_state: updateData.next_state ?? existingStage.next_state,
           stages: updateData.stages,
           updated_at: Math.floor(Date.now() / 1000)
         });
@@ -240,16 +263,10 @@ export class DriverProgressStagesService {
     driverId: string
   ): Promise<ApiResponse<DriverProgressStage>> {
     try {
-      console.log('🔍 Finding active stage for driver:', driverId);
-
-      // First try to find any existing stage for this driver
       const stage =
         await this.driverProgressStagesRepository.findByDriverId(driverId);
 
-      console.log('🔍 Found stage:', stage);
-
       if (!stage) {
-        console.log('❌ No stage found for driver');
         return createResponse('NotFound', null, 'No active stage found');
       }
 

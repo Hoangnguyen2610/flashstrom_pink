@@ -15,7 +15,6 @@ import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { Admin } from 'src/admin/entities/admin.entity';
 import { Order } from 'src/orders/entities/order.entity';
-import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 
 @Entity('restaurants')
 export class Restaurant {
@@ -103,9 +102,6 @@ export class Restaurant {
 
   @OneToMany(() => Order, order => order.restaurant)
   orders: Order[]; // Quan hệ ngược với Order
-
-  @OneToMany(() => RatingsReview, ratingReview => ratingReview.restaurant)
-  ratings_reviews: RatingsReview[]; // Quan hệ ngược với RatingsReview
 
   @BeforeInsert()
   generateId() {

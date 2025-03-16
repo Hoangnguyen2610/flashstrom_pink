@@ -14,7 +14,6 @@ import { User } from 'src/users/entities/user.entity';
 import { Admin } from 'src/admin/entities/admin.entity';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { Order } from 'src/orders/entities/order.entity'; // Thêm import Order
-import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
 
 @Entity('drivers')
 export class Driver {
@@ -113,9 +112,6 @@ export class Driver {
 
   @OneToMany(() => Order, order => order.driver)
   orders: Order[];
-
-  @OneToMany(() => RatingsReview, ratingReview => ratingReview.driver)
-  ratings_reviews: RatingsReview[]; // Quan hệ ngược với RatingsReview
 
   @BeforeInsert()
   generateId() {

@@ -142,7 +142,6 @@ export class AuthService {
     }
 
     const fWalletData = await this.fWalletsRepository.findByUserId(user.id);
-    console.log('check user id', fWalletData);
 
     if (!fWalletData) {
       return createResponse('NotFound', null, 'Driver not found');

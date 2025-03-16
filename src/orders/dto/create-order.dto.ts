@@ -1,3 +1,4 @@
+// create-order.dto.ts
 import {
   IsString,
   IsArray,
@@ -9,89 +10,111 @@ import {
 
 export class CreateOrderDto {
   @IsString()
-  customer_id: string; // Customer ID
+  customer_id: string;
 
   @IsString()
-  restaurant_id: string; // Restaurant ID
+  restaurant_id: string;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  distance?: number; // Total amount for the order (if updated)
+  distance?: number;
 
   @IsEnum([
     'PENDING',
     'RESTAURANT_ACCEPTED',
+    'PREPARING',
     'IN_PROGRESS',
+    'READY_FOR_PICKUP',
+    'RESTAURANT_PICKUP',
+    'DISPATCHED',
+    'EN_ROUTE',
+    'OUT_FOR_DELIVERY',
     'DELIVERED',
-    'CANCELLED'
+    'DELIVERY_FAILED'
   ])
   status:
     | 'PENDING'
     | 'RESTAURANT_ACCEPTED'
+    | 'PREPARING'
     | 'IN_PROGRESS'
+    | 'READY_FOR_PICKUP'
+    | 'RESTAURANT_PICKUP'
+    | 'DISPATCHED'
+    | 'EN_ROUTE'
+    | 'OUT_FOR_DELIVERY'
     | 'DELIVERED'
-    | 'CANCELLED'; // Status of the order
+    | 'DELIVERY_FAILED';
 
   @IsNumber()
   @Min(0)
-  total_amount: number; // Total amount for the order
+  total_amount: number;
 
   @IsNumber()
   @Min(0)
-  delivery_fee: number; // Total amount for the order
+  delivery_fee: number;
 
   @IsNumber()
   @Min(0)
-  service_fee: number; // Total amount for the order
+  service_fee: number;
 
   @IsEnum(['PENDING', 'PAID', 'FAILED'])
-  payment_status: 'PENDING' | 'PAID' | 'FAILED'; // Payment status
+  payment_status: 'PENDING' | 'PAID' | 'FAILED';
 
   @IsEnum(['COD', 'FWallet'])
-  payment_method: 'COD' | 'FWallet'; // Payment method used for the order
+  payment_method: 'COD' | 'FWallet';
 
   @IsString()
-  customer_location: string; // Reference to customer's address
+  customer_location: string;
 
   @IsString()
-  restaurant_location: string; // Reference to restaurant's address
+  restaurant_location: string;
 
   @IsArray()
   @IsOptional()
   order_items: Array<{
-    item_id: string; // Menu item ID
-    variant_id: string; // Menu item ID
-    name: string; // Name of the menu item
-    quantity: number; // Quantity of the item
-    price_at_time_of_order: number; // Price at the time of the order
-  }>; // Array of ordered items
+    item_id: string;
+    variant_id: string;
+    name: string;
+    quantity: number;
+    price_at_time_of_order: number;
+  }>;
 
   @IsString()
   @IsOptional()
-  customer_note?: string; // Optional note from the customer
+  customer_note?: string;
 
   @IsString()
   @IsOptional()
-  restaurant_note?: string; // Optional note from the restaurant
+  restaurant_note?: string;
 
   @IsNumber()
-  order_time: number; // Unix timestamp when the order is placed
+  order_time: number;
 
   @IsNumber()
-  delivery_time: number; // Unix timestamp when the order is expected to be delivered
+  delivery_time: number;
 
   @IsEnum([
     'ORDER_PLACED',
+    'ORDER_RECEIVED',
     'PREPARING',
+    'IN_PROGRESS',
     'RESTAURANT_PICKUP',
+    'DISPATCHED',
+    'EN_ROUTE',
     'OUT_FOR_DELIVERY',
+    'DELIVERY_FAILED',
     'DELIVERED'
   ])
   tracking_info:
     | 'ORDER_PLACED'
+    | 'ORDER_RECEIVED'
     | 'PREPARING'
+    | 'IN_PROGRESS'
     | 'RESTAURANT_PICKUP'
+    | 'DISPATCHED'
+    | 'EN_ROUTE'
     | 'OUT_FOR_DELIVERY'
-    | 'DELIVERED'; // Order tracking status
+    | 'DELIVERY_FAILED'
+    | 'DELIVERED';
 }
