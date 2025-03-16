@@ -81,7 +81,7 @@ export class AuthService {
     return Boolean(email && password);
   }
 
-  private async findUserByEmail(email: string): Promise<User | null> {
+  public async findUserByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { email } });
   }
 
@@ -809,6 +809,7 @@ export class AuthService {
           user_id: newUser.id,
           owner_id: newUser.id
         });
+        console.log('chekc newuserwithrole restaurant', newUserWithRole);
         break;
 
       case Enum_UserType.F_WALLET:

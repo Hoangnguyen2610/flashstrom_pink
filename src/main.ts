@@ -17,7 +17,7 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders:
       'Content-Type, Accept, Authorization, ngrok-skip-browser-warning, X-Content-Type-Options',
-    credentials: true,
+    credentials: true
   });
 
   app.use((req, res, next) => {
@@ -28,7 +28,6 @@ async function bootstrap() {
     // Prevent content type sniffing
     res.setHeader('X-Content-Type-Options', 'nosniff');
     next();
-
   });
 
   // Use the ValidationPipe globally with the whitelist option

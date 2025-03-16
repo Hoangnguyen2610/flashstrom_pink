@@ -207,9 +207,15 @@ export class OrdersService {
     }
   }
 
-  async findOne(id: string): Promise<ApiResponse<Order>> {
+  async findOne(
+    id: string,
+    transactionalEntityManager?: EntityManager
+  ): Promise<ApiResponse<Order>> {
     try {
-      const order = await this.ordersRepository.findById(id);
+      const manager = transactionalEntityManager || this.dataSource.manager; // Dùng dataSource.manager
+      const order = await manager
+        .getRepository(Order)
+        .findOne({ where: { id } });
       return this.handleOrderResponse(order);
     } catch (error) {
       return this.handleError('Error fetching order:', error);

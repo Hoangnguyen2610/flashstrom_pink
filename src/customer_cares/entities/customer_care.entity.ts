@@ -48,13 +48,17 @@ export class CustomerCare {
   )
   assigned_tickets: CustomerCareInquiry[];
 
-  @Column()
+  @Column({ type: 'bigint', default: () => 'EXTRACT(EPOCH FROM NOW())' })
   created_at: number;
 
-  @Column()
+  @Column({ type: 'bigint', default: () => 'EXTRACT(EPOCH FROM NOW())' })
   updated_at: number;
 
-  @Column({ nullable: true })
+  @Column({
+    nullable: true,
+    type: 'bigint',
+    default: () => 'EXTRACT(EPOCH FROM NOW())'
+  })
   last_login: number;
 
   @Column('jsonb', { nullable: true })

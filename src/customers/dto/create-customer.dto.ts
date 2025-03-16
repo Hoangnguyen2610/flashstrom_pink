@@ -97,3 +97,25 @@ export class CreateCustomerDto {
   @IsInt()
   updated_at: number; // Unix timestamp for when the customer was last updated
 }
+
+export class createCustomerSignup extends CreateCustomerDto {
+  @IsOptional()
+  @IsString()
+  first_name: string;
+
+  @IsOptional()
+  @IsString()
+  last_name: string;
+
+  @IsOptional()
+  @IsString()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  password: string;
+
+  @IsOptional()
+  @IsString()
+  phone: string;
+}

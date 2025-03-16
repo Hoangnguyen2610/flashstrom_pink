@@ -15,13 +15,14 @@ import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { forwardRef, Inject } from '@nestjs/common';
 import { FIXED_DELIVERY_DRIVER_WAGE } from 'src/utils/constants';
 import { Type_Delivery_Order } from 'src/types/Driver';
-import { calculateDistance } from 'src/utils/distance';
+import { calculateDistance } from 'src/utils/commonFunctions';
 import { OrderStatus } from 'src/orders/entities/order.entity';
 import { OrderTrackingInfo } from 'src/orders/entities/order.entity';
 import { WsResponse } from '@nestjs/websockets';
+import { OrdersRepository } from 'src/orders/orders.repository';
 
 interface AvailableDriver {
-  _id: string;
+  id: string;
   lat: number;
   lng: number;
 }
@@ -52,7 +53,8 @@ export class RestaurantsGateway
     private readonly restaurantsService: RestaurantsService,
     @Inject(forwardRef(() => DriversService))
     private readonly driverService: DriversService,
-    private eventEmitter: EventEmitter2
+    private eventEmitter: EventEmitter2,
+    private readonly ordersRepository: OrdersRepository
   ) {}
 
   afterInit() {
@@ -140,7 +142,7 @@ export class RestaurantsGateway
       );
 
       const mappedDrivers = availableDrivers.map(item => ({
-        _id: item._id,
+        id: item.id,
         location: {
           lat: item.lat,
           lng: item.lng
@@ -160,26 +162,40 @@ export class RestaurantsGateway
         responsePrioritizeDrivers.data.length > 0
       ) {
         const selectedDriver = responsePrioritizeDrivers.data[0];
-        const res_location =
-          fullOrderDetails.restaurant_location as unknown as {
+        const res_location = fullOrderDetails.restaurantAddress as unknown as {
+          location: { lat: number; lng: number };
+        };
+        const customer_location =
+          fullOrderDetails.customerAddress as unknown as {
             location: { lat: number; lng: number };
           };
-
+        console.log(
+          'check fullorde details',
+          fullOrderDetails,
+          'driver cus location',
+          customer_location?.location,
+          'check res location',
+          res_location?.location
+        );
         const distance = calculateDistance(
-          selectedDriver.location.lat,
-          selectedDriver.location.lng,
+          customer_location?.location?.lat ?? 0,
+          customer_location?.location?.lng ?? 0,
           res_location?.location?.lat ?? 0,
           res_location?.location?.lng ?? 0
         );
 
         const orderAssignment = {
           ...fullOrderDetails,
-          driver_id: selectedDriver._id,
+          driver_id: selectedDriver.id,
           driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
           tracking_info: OrderTrackingInfo.PREPARING,
           status: OrderStatus.RESTAURANT_ACCEPTED,
           distance: distance
         };
+        const orderWithDistance = await this.ordersRepository.update(orderId, {
+          distance: +distance
+        });
+        console.log('orderAssignment', orderWithDistance);
 
         await this.notifyPartiesOnce(orderAssignment);
 
@@ -288,7 +304,7 @@ export class RestaurantsGateway
         driver_id: order.driver_id,
         restaurant_id: order.restaurant_id
       };
-
+      console.log('trackingUpdate', trackingUpdate);
       this.eventEmitter.emit('restaurantPreparingOrder', trackingUpdate);
       console.log(
         `Emitted restaurantPreparingOrder via EventEmitter for order ${order.id}`

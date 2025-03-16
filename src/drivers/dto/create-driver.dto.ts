@@ -50,3 +50,25 @@ export class CreateDriverDto {
   @IsOptional()
   avatar?: { key: string; url: string };
 }
+
+export class createDriverSignup extends CreateDriverDto {
+  @IsOptional()
+  @IsString()
+  first_name: string;
+
+  @IsOptional()
+  @IsString()
+  last_name: string;
+
+  @IsOptional()
+  @IsString()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  password: string;
+
+  @IsOptional()
+  @IsString()
+  phone: string;
+}

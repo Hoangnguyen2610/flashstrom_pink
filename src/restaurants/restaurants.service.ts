@@ -16,7 +16,10 @@ import { Restaurant } from './entities/restaurant.entity';
 import { RestaurantsRepository } from './restaurants.repository';
 import { OrdersRepository } from 'src/orders/orders.repository';
 import { RestaurantsGateway } from 'src/restaurants/restaurants.gateway';
-import { OrderStatus } from 'src/orders/entities/order.entity';
+import {
+  OrderStatus,
+  OrderTrackingInfo
+} from 'src/orders/entities/order.entity';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 
@@ -356,10 +359,28 @@ export class RestaurantsService {
 
   async updateOrderStatus(orderId: string, status: string): Promise<any> {
     try {
-      const updatedOrder = await this.ordersRepository.updateStatus(
-        orderId,
-        status as OrderStatus
-      );
+      let tracking_info: OrderTrackingInfo;
+      switch (status) {
+        case OrderStatus.RESTAURANT_ACCEPTED:
+          tracking_info = OrderTrackingInfo.PREPARING;
+          break;
+        case OrderStatus.RESTAURANT_PICKUP:
+          tracking_info = OrderTrackingInfo.RESTAURANT_PICKUP;
+          break;
+        case OrderStatus.IN_PROGRESS:
+          tracking_info = OrderTrackingInfo.OUT_FOR_DELIVERY;
+          break;
+        case OrderStatus.PENDING:
+          tracking_info = OrderTrackingInfo.ORDER_PLACED;
+          break;
+        default:
+          tracking_info = OrderTrackingInfo.DELIVERED;
+      }
+
+      const updatedOrder = await this.ordersRepository.updateStatus(orderId, {
+        status,
+        tracking_info
+      } as { status: OrderStatus; tracking_info: OrderTrackingInfo });
 
       if (!updatedOrder) {
         return createResponse('NotFound', null, 'Order not found');

@@ -29,7 +29,10 @@ export class OrdersRepository {
   }
 
   async findById(id: string): Promise<Order> {
-    const result = await this.repository.findOne({ where: { id } });
+    const result = await this.repository.findOne({
+      where: { id },
+      relations: ['restaurantAddress', 'customerAddress'] // Populate quan hệ restaurantAddress
+    });
     return result;
   }
 
@@ -51,9 +54,16 @@ export class OrdersRepository {
     return result.affected > 0;
   }
 
-  async updateStatus(id: string, status: OrderStatus): Promise<Order> {
+  async updateStatus(
+    id: string,
+    {
+      status,
+      tracking_info
+    }: { status: OrderStatus; tracking_info: OrderTrackingInfo }
+  ): Promise<Order> {
     await this.repository.update(id, {
       status,
+      tracking_info,
       updated_at: Math.floor(Date.now() / 1000)
     });
     return this.findById(id);

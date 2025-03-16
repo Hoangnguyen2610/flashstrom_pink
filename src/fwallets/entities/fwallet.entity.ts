@@ -33,10 +33,10 @@ export class FWallet {
   @Column({ default: false })
   is_verified: boolean;
 
-  @Column({ name: 'created_at' })
+  @Column({ type: 'bigint', default: () => 'EXTRACT(EPOCH FROM NOW())' })
   created_at: number;
 
-  @Column({ name: 'updated_at' })
+  @Column({ type: 'bigint', default: () => 'EXTRACT(EPOCH FROM NOW())' })
   updated_at: number;
 
   @BeforeInsert()

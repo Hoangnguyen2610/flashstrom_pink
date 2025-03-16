@@ -66,3 +66,25 @@ export class CreateCustomerCareDto {
   @IsOptional()
   readonly is_assigned?: boolean; // Indicates if currently assigned to a ticket
 }
+
+export class createCustomerCareSignup extends CreateCustomerCareDto {
+  @IsOptional()
+  @IsString()
+  first_name: string;
+
+  @IsOptional()
+  @IsString()
+  last_name: string;
+
+  @IsOptional()
+  @IsString()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  password: string;
+
+  @IsOptional()
+  @IsString()
+  phone: string;
+}

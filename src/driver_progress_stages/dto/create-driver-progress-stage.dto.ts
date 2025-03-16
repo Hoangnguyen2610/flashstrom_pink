@@ -6,14 +6,12 @@ import {
   ValidateNested
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Order } from 'src/orders/entities/order.entity'; // Import Order entity
+import { Order } from 'src/orders/entities/order.entity';
 
+// Sửa LocationDto: lat và lng là bắt buộc
 class LocationDto {
-  @IsOptional()
-  lat?: number;
-
-  @IsOptional()
-  lng?: number;
+  lat: number; // Không optional
+  lng: number; // Không optional
 }
 
 class WeatherDto {
@@ -56,11 +54,9 @@ export class StageDto {
   @IsEnum(['pending', 'completed', 'in_progress', 'failed'])
   status: 'pending' | 'completed' | 'in_progress' | 'failed';
 
-  @IsOptional()
-  timestamp?: number;
+  timestamp: number;
 
-  @IsOptional()
-  duration?: number;
+  duration: number;
 
   @IsOptional()
   @ValidateNested()
@@ -99,8 +95,8 @@ export class CreateDriverProgressStageDto {
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => Order) // Chấp nhận danh sách đối tượng Order
-  orders: Order[]; // Thay order_ids bằng orders
+  @Type(() => Order)
+  orders: Order[];
 
   @IsEnum([
     'driver_ready',

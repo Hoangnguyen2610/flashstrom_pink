@@ -101,7 +101,7 @@ export class CustomersGateway {
   @OnEvent('restaurantPreparingOrder')
   async handleRestaurantPreparingOrder(@MessageBody() order: any) {
     const trackingUpdate = {
-      orderId: order.id,
+      orderId: order.orderId,
       status: order.status,
       tracking_info: order.tracking_info,
       updated_at: order.updated_at,
