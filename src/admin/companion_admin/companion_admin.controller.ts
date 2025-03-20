@@ -14,7 +14,7 @@ import { UpdateAdminDto } from '../dto/update-admin.dto';
 // import { CreateRestaurantDto } from '../../restaurants/dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from '../../restaurants/dto/update-restaurant.dto';
 import { AdminRole } from 'src/utils/types/admin';
-import { createRestaurantSignup } from 'src/restaurants/dto/create-restaurant.dto';
+import { CreateRestaurantSignup } from 'src/restaurants/dto/create-restaurant.dto';
 import { createCustomerSignup } from 'src/customers/dto/create-customer.dto';
 import { createDriverSignup } from 'src/drivers/dto/create-driver.dto';
 import { createCustomerCareSignup } from 'src/customer_cares/dto/create-customer_cares.dto';
@@ -84,7 +84,7 @@ export class CompanionAdminController {
     });
 
     // Create restaurant signup data with the unique email
-    const createRestaurantDto: createRestaurantSignup = {
+    const createRestaurantDto: CreateRestaurantSignup = {
       first_name: emailData.fullName.first_name,
       last_name: emailData.fullName.last_name,
       email: emailData.email,

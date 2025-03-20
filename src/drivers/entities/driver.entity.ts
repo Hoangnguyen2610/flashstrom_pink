@@ -7,17 +7,17 @@ import {
   JoinColumn,
   ManyToMany,
   OneToMany,
-  JoinTable // Thêm JoinTable
+  JoinTable
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { User } from 'src/users/entities/user.entity';
 import { Admin } from 'src/admin/entities/admin.entity';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
-import { Order } from 'src/orders/entities/order.entity'; // Thêm import Order
+import { Order } from 'src/orders/entities/order.entity';
 
 @Entity('drivers')
 export class Driver {
-  @PrimaryColumn({ type: 'varchar' }) // Thêm type cho chắc
+  @PrimaryColumn({ type: 'varchar' })
   id: string;
 
   @Column()
@@ -57,7 +57,11 @@ export class Driver {
   vehicle: {
     license_plate: string;
     model: string;
+    owner: string;
+    brand: string;
+    year: number;
     color: string;
+    images?: { url: string; key: string }[]; // Thêm trường images
   };
 
   @Column('jsonb', { nullable: true })
@@ -66,19 +70,13 @@ export class Driver {
     lng: number;
   };
 
-  @ManyToMany(() => Order, order => order.drivers) // Thay current_order_id
+  @ManyToMany(() => Order, order => order.drivers)
   @JoinTable({
-    name: 'driver_current_orders', // Tên bảng join
-    joinColumn: {
-      name: 'driver_id',
-      referencedColumnName: 'id'
-    },
-    inverseJoinColumn: {
-      name: 'order_id',
-      referencedColumnName: 'id'
-    }
+    name: 'driver_current_orders',
+    joinColumn: { name: 'driver_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'order_id', referencedColumnName: 'id' }
   })
-  current_orders: Order[]; // Đổi tên thành current_orders
+  current_orders: Order[];
 
   @Column('jsonb', { nullable: true })
   rating: {

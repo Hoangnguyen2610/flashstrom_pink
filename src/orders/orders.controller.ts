@@ -21,6 +21,11 @@ export class OrdersController {
     return this.ordersService.createOrder(createOrderDto);
   }
 
+  @Post('tip')
+  async tipDriver(@Body() body: { orderId: string; tipAmount: number }) {
+    return this.ordersService.tipToDriver(body.orderId, body.tipAmount);
+  }
+
   // Get all orders
   @Get()
   findAll() {

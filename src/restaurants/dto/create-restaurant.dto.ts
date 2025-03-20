@@ -10,7 +10,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-class ContactEmail {
+export class ContactEmail {
   @IsString()
   title: string;
 
@@ -21,7 +21,7 @@ class ContactEmail {
   email: string;
 }
 
-class ContactPhone {
+export class ContactPhone {
   @IsString()
   title: string;
 
@@ -32,7 +32,7 @@ class ContactPhone {
   is_default: boolean;
 }
 
-class Status {
+export class Status {
   @IsBoolean()
   is_open: boolean;
 
@@ -114,7 +114,7 @@ export class CreateRestaurantDto {
 
   @IsOptional()
   @IsArray()
-  images_gallery?: string[];
+  images_gallery?: { url: string; key: string }[];
 
   @IsObject()
   @ValidateNested()
@@ -123,6 +123,7 @@ export class CreateRestaurantDto {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true }) // Đảm bảo mỗi phần tử trong mảng là string
   promotions?: string[];
 
   @IsOptional()
@@ -134,6 +135,7 @@ export class CreateRestaurantDto {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true }) // Tương tự cho food_category_ids
   food_category_ids?: string[];
 
   @IsObject()
@@ -142,28 +144,28 @@ export class CreateRestaurantDto {
   opening_hours: DailyHours;
 }
 
-export class createRestaurantSignup extends CreateRestaurantDto {
+export class CreateRestaurantSignup extends CreateRestaurantDto {
   @IsOptional()
   @IsString()
   owner_id: string;
 
   @IsOptional()
   @IsString()
-  first_name: string;
+  first_name?: string;
 
   @IsOptional()
   @IsString()
-  last_name: string;
+  last_name?: string;
 
   @IsOptional()
   @IsString()
-  email: string;
+  email?: string;
 
   @IsOptional()
   @IsString()
-  password: string;
+  password?: string;
 
   @IsOptional()
   @IsString()
-  phone: string;
+  phone?: string;
 }

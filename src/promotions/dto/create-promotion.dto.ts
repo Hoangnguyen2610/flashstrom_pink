@@ -1,18 +1,6 @@
 import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity'; // Import FoodCategory
-
-export enum PromotionStatus {
-  ACTIVE = 'ACTIVE',
-  EXPIRED = 'EXPIRED',
-  PENDING = 'PENDING',
-  CANCELLED = 'CANCELLED'
-}
-
-export enum DiscountType {
-  PERCENTAGE = 'PERCENTAGE',
-  FIXED = 'FIXED',
-  BOGO = 'BOGO'
-}
+import { DiscountType, PromotionStatus } from '../entities/promotion.entity';
 
 interface BogoDetails {
   buy_quantity: number;

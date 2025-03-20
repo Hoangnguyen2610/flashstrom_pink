@@ -1,11 +1,8 @@
 import { PartialType } from '@nestjs/mapped-types';
-import {
-  CreatePromotionDto,
-  DiscountType,
-  PromotionStatus
-} from './create-promotion.dto';
+import { CreatePromotionDto } from './create-promotion.dto';
 import { IsEnum, IsNumber, IsOptional } from 'class-validator';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity'; // Import FoodCategory
+import { DiscountType, PromotionStatus } from '../entities/promotion.entity';
 
 export class UpdatePromotionDto extends PartialType(CreatePromotionDto) {
   @IsOptional()

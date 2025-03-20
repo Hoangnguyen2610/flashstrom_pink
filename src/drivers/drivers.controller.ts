@@ -8,7 +8,7 @@ import {
   Delete
 } from '@nestjs/common';
 import { DriversService } from './drivers.service'; // Corrected to use DriversService
-import { CreateDriverDto } from './dto/create-driver.dto'; // Corrected to use CreateDriverDto
+import { CreateDriverDto, UpdateVehicleDto } from './dto/create-driver.dto'; // Corrected to use CreateDriverDto
 import { UpdateDriverDto } from './dto/update-driver.dto'; // Corrected to use UpdateDriverDto
 
 @Controller('drivers') // Updated route to 'drivers'
@@ -35,6 +35,14 @@ export class DriversController {
   @Get(':field/:value')
   findOne(@Param('field') field: string, @Param('value') value: string) {
     return this.driversService.findOne({ [field]: value }); // Corrected service method to use driversService
+  }
+
+  @Patch('vehicle/:driverId')
+  async updateDriverVehicle(
+    @Body() updateVehicleDto: UpdateVehicleDto,
+    @Param('driverId') driverId: string
+  ) {
+    return await this.driversService.updateVehicle(driverId, updateVehicleDto);
   }
 
   @Patch(':id')

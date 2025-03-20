@@ -7,7 +7,8 @@ import {
   OneToMany,
   ManyToMany,
   ManyToOne,
-  JoinColumn
+  JoinColumn,
+  JoinTable
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
@@ -16,36 +17,37 @@ import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
 import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { Customer } from 'src/customers/entities/customer.entity';
 import { RatingsReview } from 'src/ratings_reviews/entities/ratings_review.entity';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 
 export enum OrderTrackingInfo {
-  ORDER_PLACED = 'ORDER_PLACED', // Đặt hàng
-  ORDER_RECEIVED = 'ORDER_RECEIVED', // Đơn hàng đã được tiếp nhận
-  PREPARING = 'PREPARING', // Đang chuẩn bị món ăn
-  IN_PROGRESS = 'IN_PROGRESS', // Đang tiến hành chuẩn bị
-  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP', // Món ăn đã sẵn sàng tại nhà hàng
-  DISPATCHED = 'DISPATCHED', // Đơn hàng đã được giao cho tài xế
-  EN_ROUTE = 'EN_ROUTE', // Tài xế đang trên đường giao
-  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY', // Đang giao hàng
-  DELIVERY_FAILED = 'DELIVERY_FAILED', // Giao hàng thất bại
-  DELIVERED = 'DELIVERED', // Giao hàng thành công
-  CANCELLED = 'CANCELLED', // Đơn hàng đã bị hủy
-  RETURNED = 'RETURNED' // Đơn hàng đã được trả lại
+  ORDER_PLACED = 'ORDER_PLACED',
+  ORDER_RECEIVED = 'ORDER_RECEIVED',
+  PREPARING = 'PREPARING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP',
+  DISPATCHED = 'DISPATCHED',
+  EN_ROUTE = 'EN_ROUTE',
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
+  DELIVERY_FAILED = 'DELIVERY_FAILED',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED',
+  RETURNED = 'RETURNED'
 }
 
 export enum OrderStatus {
-  PENDING = 'PENDING', // Đơn hàng đang chờ xử lý
-  RESTAURANT_ACCEPTED = 'RESTAURANT_ACCEPTED', // Nhà hàng đã nhận đơn
-  PREPARING = 'PREPARING', // Nhà hàng bắt đầu chuẩn bị
-  IN_PROGRESS = 'IN_PROGRESS', // Đang chuẩn bị
-  READY_FOR_PICKUP = 'READY_FOR_PICKUP', // Món ăn sẵn sàng để giao
-  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP', // Đã giao cho tài xế
-  DISPATCHED = 'DISPATCHED', // Tài xế nhận đơn và chuẩn bị giao
-  EN_ROUTE = 'EN_ROUTE', // Tài xế đang trên đường
-  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY', // Đơn hàng đang giao
-  DELIVERED = 'DELIVERED', // Giao thành công
-  CANCELLED = 'CANCELLED', // Đơn bị hủy
-  RETURNED = 'RETURNED', // Đơn bị trả lại
-  DELIVERY_FAILED = 'DELIVERY_FAILED' // Giao thất bại
+  PENDING = 'PENDING',
+  RESTAURANT_ACCEPTED = 'RESTAURANT_ACCEPTED',
+  PREPARING = 'PREPARING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  READY_FOR_PICKUP = 'READY_FOR_PICKUP',
+  RESTAURANT_PICKUP = 'RESTAURANT_PICKUP',
+  DISPATCHED = 'DISPATCHED',
+  EN_ROUTE = 'EN_ROUTE',
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED',
+  RETURNED = 'RETURNED',
+  DELIVERY_FAILED = 'DELIVERY_FAILED'
 }
 
 @Entity('orders')
@@ -149,6 +151,9 @@ export class Order {
   })
   tracking_info: OrderTrackingInfo;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  driver_tips: number;
+
   @Column()
   created_at: number;
 
@@ -166,6 +171,22 @@ export class Order {
 
   @OneToMany(() => RatingsReview, ratingReview => ratingReview.order)
   ratings_reviews: RatingsReview[];
+
+  @ManyToMany(() => Promotion, promotion => promotion.restaurants, {
+    nullable: true
+  })
+  @JoinTable({
+    name: 'order_promotions',
+    joinColumn: {
+      name: 'order_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'promotion_id',
+      referencedColumnName: 'id'
+    }
+  })
+  promotions_applied: Promotion[];
 
   @BeforeInsert()
   generateId() {

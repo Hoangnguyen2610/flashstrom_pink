@@ -46,6 +46,9 @@ import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { DriverProgressStagesRepository } from 'src/driver_progress_stages/driver_progress_stages.repository';
 import { DriverProgressStage } from 'src/driver_progress_stages/entities/driver_progress_stage.entity';
 import { AddressBookService } from 'src/address_book/address_book.service';
+import { Transaction } from 'src/transactions/entities/transaction.entity';
+import { TransactionService } from 'src/transactions/transactions.service';
+import { TransactionsRepository } from 'src/transactions/transactions.repository';
 
 @Module({
   imports: [
@@ -64,6 +67,7 @@ import { AddressBookService } from 'src/address_book/address_book.service';
       User,
       FWallet,
       Promotion,
+      Transaction,
       DriverProgressStage
     ]),
     AdminModule,
@@ -89,6 +93,8 @@ import { AddressBookService } from 'src/address_book/address_book.service';
     UserRepository,
     FWalletsRepository,
     UsersService,
+    TransactionService,
+    TransactionsRepository,
     PromotionsRepository,
     MenuItemsRepository,
     MenuItemVariantsRepository,

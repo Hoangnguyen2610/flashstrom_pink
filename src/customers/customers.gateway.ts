@@ -6,8 +6,8 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { CustomersService } from './customers.service';
-// import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { OnEvent } from '@nestjs/event-emitter';
+import { JwtService } from '@nestjs/jwt';
 
 @WebSocketGateway({
   namespace: 'customer',
@@ -22,84 +22,76 @@ export class CustomersGateway {
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly jwtService: JwtService
+  ) {}
 
-  handleConnection(client: Socket) {
-    console.log('⚡️ Client connected to customer namespace:', client.id);
-  }
-  @SubscribeMessage('joinRoomCustomer')
-  handleJoinRoom(client: Socket, data: any) {
-    const customerId =
-      typeof data === 'string' ? data : data?.channel || data?._id || data;
-
+  private async validateToken(client: Socket): Promise<any> {
     try {
-      client.join(`customer_${customerId}`);
-      console.log(`customer_${customerId} joined`);
+      const authHeader = client.handshake.headers.auth as string;
+      if (!authHeader?.startsWith('Bearer ')) {
+        client.disconnect();
+        return null;
+      }
 
-      return {
-        event: 'joinRoomCustomer',
-        data: `Joined customer_${customerId}`
-      };
+      const token = authHeader.slice(7);
+      if (!token) {
+        client.disconnect();
+        return null;
+      }
+
+      const decoded = await this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET
+      });
+
+      return decoded;
     } catch (error) {
-      console.error('❌ Error joining room:', error);
-      return {
-        event: 'error',
-        data: 'Failed to join room'
-      };
+      console.error('Token validation error:', error);
+      client.disconnect();
+      return null;
     }
   }
 
-  @OnEvent('orderTrackingUpdate')
-  async handleOrderTrackingUpdate(@MessageBody() order: any) {
-    console.log('Received orderTrackingUpdate in customer event:', order);
-    // Return the response that will be visible in Postman
-    return {
-      event: 'orderTrackingUpdate',
-      data: order,
-      message: `orderTrackingUpdate: ${order}`
-    };
+  async handleConnection(client: Socket) {
+    console.log('⚡️ Client connected to customer namespace:', client.id);
+    const customerData = await this.validateToken(client);
+    if (!customerData) return;
+
+    const customerId = customerData.id;
+    if (customerId) {
+      client.join(`customer_${customerId}`);
+      console.log(`Customer auto-joined customer_${customerId} via token`);
+    }
   }
-  @OnEvent('listenUpdateOrderTracking')
-  async handleListenUpdateOrderTracking(@MessageBody() order: any) {
-    console.log(
-      'Received listenUpdateOrderTracking in customer event to',
-      `customer_${order.customer_id}`
-    );
-    await this.server
-      .to(`customer_${order.customer_id}`)
-      .emit('orderTrackingUpdate', {
-        event: 'orderTrackingUpdate',
-        data: order,
-        message: 'Order received successfully'
-      });
-    // Return the response that will be visible in Postman
-    return {
-      event: 'listenUpdateOrderTracking',
-      data: order,
-      message: `listenUpdateOrderTracking ${order}`
+
+  @SubscribeMessage('customerPlaceOrder')
+  async handleCustomerPlaceOrder(@MessageBody() order: any) {
+    const customerId = order.customer_id;
+    const trackingUpdate = {
+      orderId: order.id,
+      status: order.status,
+      tracking_info: order.tracking_info,
+      updated_at: order.updated_at,
+      customer_id: order.customer_id,
+      driver_id: order.driver_id,
+      restaurant_id: order.restaurant_id
     };
-  }
-  @OnEvent('restaurantPreparingOrder')
-  async handleListenRestaurantPreparingOrderFromEventEmitter(
-    @MessageBody() order: any
-  ) {
     await this.server
-      .to(`customer_${order.customer_id}`)
-      .emit('restaurantPreparingOrder', {
-        event: 'restaurantPreparingOrder',
-        data: order,
-        message: 'Order received successfully'
-      });
-    // Return the response that will be visible in Postman
+      .to(`customer_${customerId}`)
+      .emit('notifyOrderStatus', trackingUpdate);
+    console.log('Emitted notifyOrderStatus for customer:', trackingUpdate);
     return {
-      event: 'restaurantPreparingOrder',
-      data: order,
-      message: `restaurantPreparingOrder ${order}`
+      event: 'customerPlaceOrder',
+      data: trackingUpdate,
+      message: `customerPlaceOrder processed successfully`
     };
   }
 
-  @OnEvent('restaurantPreparingOrder')
-  async handleRestaurantPreparingOrder(@MessageBody() order: any) {
+  // Bỏ @OnEvent('listenOrderStatusUpdate') vì không cần thiết
+
+  @OnEvent('listenUpdateOrderTracking')
+  async handleListenUpdateOrderTracking(@MessageBody() order: any) {
     const trackingUpdate = {
       orderId: order.orderId,
       status: order.status,
@@ -109,70 +101,15 @@ export class CustomersGateway {
       driver_id: order.driver_id,
       restaurant_id: order.restaurant_id
     };
-    console.log(
-      'Received customerPlaceOrder in customer event:',
-      trackingUpdate
-    );
-    return {
-      event: 'customerPlaceOrder',
-      data: trackingUpdate,
-      message: `customerPlaceOrder: ${order}`
-    };
-  }
-
-  @SubscribeMessage('customerPlaceOrder')
-  async handleCustomerPlaceOrder(@MessageBody() order: any) {
-    const customerId = await order.customer_id;
-
-    // Format the tracking update consistently
-    const trackingUpdate = {
-      orderId: order.id,
-      status: order.status,
-      tracking_info: order.tracking_info,
-      updated_at: order.updated_at,
-      customer_id: order.customer_id,
-      driver_id: order.driver_id,
-      restaurant_id: order.restaurant_id
-    };
-
-    // Emit the formatted tracking update
+    console.log('check falle here???', order, 'trackingudpate', trackingUpdate);
     await this.server
-      .to(`customer_${customerId}`)
-      .emit('customerPlaceOrder', trackingUpdate);
-
-    console.log(
-      'Received customerPlaceOrder in customer event:',
-      trackingUpdate
-    );
-
-    // Return the formatted tracking update
+      .to(`customer_${order.customer_id}`)
+      .emit('notifyOrderStatus', trackingUpdate); // Đổi thành notifyOrderStatus
+    console.log(`Emitted notifyOrderStatus to customer_${order.customer_id}`);
     return {
-      event: 'customerPlaceOrder',
-      data: trackingUpdate,
-      message: `customerPlaceOrder processed successfully`
-    };
-  }
-
-  @OnEvent('customerPlaceOrder')
-  async handleListenCustomerPlaceOrder(@MessageBody() order: any) {
-    // Return the response that will be visible in Postman
-    const trackingUpdate = {
-      orderId: order.id,
-      status: order.status,
-      tracking_info: order.tracking_info,
-      updated_at: order.updated_at,
-      customer_id: order.customer_id,
-      driver_id: order.driver_id,
-      restaurant_id: order.restaurant_id
-    };
-    console.log(
-      'Received customerPlaceOrder in customer event:',
-      trackingUpdate
-    );
-    return {
-      event: 'customerPlaceOrder',
-      data: trackingUpdate,
-      message: `customerPlaceOrder: ${order}`
+      event: 'notifyOrderStatus',
+      data: order,
+      message: `Notified customer ${order.customer_id}`
     };
   }
 }

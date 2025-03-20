@@ -5,6 +5,7 @@ import { FWalletsRepository } from './fwallets.repository';
 import { createResponse } from 'src/utils/createResponse';
 import { ApiResponse } from 'src/utils/createResponse';
 import { FWallet } from './entities/fwallet.entity';
+import { Transaction } from 'src/transactions/entities/transaction.entity';
 
 @Injectable()
 export class FWalletService {
@@ -44,6 +45,20 @@ export class FWalletService {
     }
   }
 
+  async findBySearchQuery(query: string): Promise<ApiResponse<FWallet[]>> {
+    try {
+      const wallets = await this.fWalletsRepository.findBySearchQuery(query);
+      return createResponse('OK', wallets, 'Fetched wallets by search query');
+    } catch (error) {
+      console.error('Error fetching wallets by search query:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching wallets by search query'
+      );
+    }
+  }
+
   async findFWalletById(id: string): Promise<ApiResponse<FWallet>> {
     try {
       const wallet = await this.fWalletsRepository.findById(id);
@@ -73,7 +88,7 @@ export class FWalletService {
   async update(
     id: string,
     updateFWalletDto: UpdateFwalletDto
-  ): Promise<ApiResponse<FWallet>> {
+  ): Promise<ApiResponse<any>> {
     try {
       const wallet = await this.fWalletsRepository.findById(id);
       if (!wallet) {
@@ -101,6 +116,31 @@ export class FWalletService {
     } catch (error) {
       console.error('Error deleting wallet:', error);
       return createResponse('ServerError', null, 'Error deleting wallet');
+    }
+  }
+
+  async findHistoryTransaction(
+    fWalletId: string
+  ): Promise<ApiResponse<Transaction[]>> {
+    try {
+      const wallet = await this.fWalletsRepository.findById(fWalletId);
+      if (!wallet) {
+        return createResponse('NotFound', null, 'Wallet not found');
+      }
+      const transactions =
+        await this.fWalletsRepository.findHistoryTransaction(fWalletId);
+      return createResponse(
+        'OK',
+        transactions,
+        'Fetched transaction history successfully'
+      );
+    } catch (error) {
+      console.error('Error fetching transaction history:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Error fetching transaction history'
+      );
     }
   }
 }

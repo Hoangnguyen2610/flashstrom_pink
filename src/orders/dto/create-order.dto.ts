@@ -117,4 +117,8 @@ export class CreateOrderDto {
     | 'OUT_FOR_DELIVERY'
     | 'DELIVERY_FAILED'
     | 'DELIVERED';
+
+  @IsOptional()
+  @IsArray()
+  promotions_applied?: string[]; // Array of promotion IDs
 }

@@ -8,6 +8,7 @@ import { FoodCategory } from '../food_categories/entities/food_category.entity';
 import { createResponse } from 'src/utils/createResponse';
 import { UserRepository } from 'src/users/users.repository';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 
 @Injectable()
 export class RestaurantsRepository {
@@ -24,20 +25,19 @@ export class RestaurantsRepository {
     createDto: CreateRestaurantDto & { specialize_in?: FoodCategory[] }
   ): Promise<any> {
     const owner = await this.userRepository.findById(createDto.owner_id);
-    if (!owner) {
-      return createResponse('NotFound', null, 'Owner not found');
-    }
+    if (!owner) return createResponse('NotFound', null, 'Owner not found');
 
-    // Check if address exists
     const address = await this.addressRepository.findById(createDto.address_id);
-    if (!address) {
-      return createResponse('NotFound', null, 'Address not found');
-    }
+    if (!address) return createResponse('NotFound', null, 'Address not found');
 
-    // Sử dụng specialize_in từ DTO (đã được RestaurantsService xử lý)
     const specialize_in = createDto.specialize_in || [];
+    const promotions =
+      createDto.promotions && createDto.promotions.length > 0
+        ? await this.repository.manager
+            .getRepository(Promotion)
+            .findByIds(createDto.promotions)
+        : [];
 
-    // Convert DTO to DeepPartial<Restaurant>
     const restaurantData: DeepPartial<Restaurant> = {
       owner_id: createDto.owner_id,
       owner_name: createDto.owner_name,
@@ -49,10 +49,10 @@ export class RestaurantsRepository {
       avatar: createDto.avatar,
       images_gallery: createDto.images_gallery || [],
       status: createDto.status,
-      promotions: createDto.promotions || [],
+      promotions, // Gán Promotion[]
       ratings: createDto.ratings,
       opening_hours: createDto.opening_hours,
-      specialize_in, // Sử dụng specialize_in từ DTO
+      specialize_in,
       created_at: Math.floor(Date.now() / 1000),
       updated_at: Math.floor(Date.now() / 1000)
     };
@@ -61,7 +61,6 @@ export class RestaurantsRepository {
     const savedRestaurant = await this.repository.save(restaurant, {
       reload: true
     });
-
     return savedRestaurant;
   }
 
@@ -71,10 +70,11 @@ export class RestaurantsRepository {
     });
   }
 
+  // Trong RestaurantsRepository
   async findById(id: string): Promise<Restaurant> {
     return await this.repository.findOne({
       where: { id },
-      relations: ['owner', 'address', 'specialize_in']
+      relations: ['owner', 'address', 'specialize_in', 'promotions'] // Thêm 'promotions'
     });
   }
 
@@ -89,30 +89,31 @@ export class RestaurantsRepository {
     id: string,
     updateDto: UpdateRestaurantDto & { specialize_in?: FoodCategory[] }
   ): Promise<Restaurant> {
-    const specialize_in = updateDto.specialize_in; // Lấy specialize_in từ DTO
+    const specialize_in = updateDto.specialize_in;
+    const promotions =
+      updateDto.promotions && updateDto.promotions.length > 0
+        ? await this.repository.manager
+            .getRepository(Promotion)
+            .findByIds(updateDto.promotions)
+        : undefined;
 
     const updateData: DeepPartial<Restaurant> = {
       ...updateDto,
+      promotions, // Gán Promotion[]
       updated_at: Math.floor(Date.now() / 1000)
     };
 
-    // Remove relationship fields that should not be directly updated
     delete updateData.address;
     delete updateData.owner;
-    delete updateData.specialize_in; // Xóa specialize_in khỏi updateData vì sẽ xử lý riêng
+    delete updateData.specialize_in;
 
-    // Đảm bảo images_gallery và promotions không bị null
-    if (updateData.images_gallery === undefined) {
+    if (updateData.images_gallery === undefined)
       delete updateData.images_gallery;
-    }
-    if (updateData.promotions === undefined) {
-      delete updateData.promotions;
-    }
+    if (updateData.promotions === undefined) delete updateData.promotions;
 
     await this.repository.update(id, updateData);
     const updatedRestaurant = await this.findById(id);
 
-    // Cập nhật quan hệ ManyToMany nếu có
     if (specialize_in && specialize_in.length > 0) {
       updatedRestaurant.specialize_in = specialize_in;
       await this.repository.save(updatedRestaurant);
@@ -131,5 +132,28 @@ export class RestaurantsRepository {
       where: condition,
       relations: ['owner', 'address', 'specialize_in']
     });
+  }
+  async updateImgGallery(
+    id: string,
+    imagesGallery: Array<{ key: string; url: string }>
+  ): Promise<Restaurant> {
+    const restaurant = await this.findById(id);
+    if (!restaurant) {
+      throw new Error('Restaurant not found');
+    }
+
+    const updatedImagesGallery = [
+      ...(Array.isArray(restaurant.images_gallery)
+        ? restaurant.images_gallery
+        : []),
+      ...imagesGallery
+    ];
+
+    await this.repository.update(id, {
+      images_gallery: updatedImagesGallery, // TypeORM sẽ tự động chuyển thành JSON cho jsonb
+      updated_at: Math.floor(Date.now() / 1000)
+    });
+
+    return await this.findById(id);
   }
 }

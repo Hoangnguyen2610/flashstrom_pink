@@ -37,6 +37,12 @@ import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { DriversModule } from 'src/drivers/drivers.module'; // Đảm bảo import
 import { CustomersGateway } from 'src/customers/customers.gateway';
 import { CustomersService } from 'src/customers/customers.service';
+import { JwtService } from '@nestjs/jwt';
+import { TransactionsRepository } from 'src/transactions/transactions.repository';
+import { Transaction } from 'src/transactions/entities/transaction.entity';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { TransactionService } from 'src/transactions/transactions.service';
+import { FWallet } from 'src/fwallets/entities/fwallet.entity';
 
 @Module({
   imports: [
@@ -47,11 +53,13 @@ import { CustomersService } from 'src/customers/customers.service';
       AddressBook,
       Restaurant,
       Customer,
+      Transaction,
       FoodCategory,
       Driver, // Cung cấp Repository<Driver>
       User,
       Promotion,
       DriverProgressStage,
+      FWallet,
       CartItem
     ]),
     forwardRef(() => DriversModule) // Tham chiếu đến DriversModule
@@ -80,7 +88,11 @@ import { CustomersService } from 'src/customers/customers.service';
     MenuItemVariantsService,
     DriverProgressStagesRepository,
     CartItemsRepository,
-    CustomersGateway
+    FWalletsRepository,
+    TransactionService,
+    CustomersGateway,
+    TransactionsRepository,
+    JwtService
   ],
   exports: [OrdersService]
 })

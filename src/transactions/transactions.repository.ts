@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Transaction } from './entities/transaction.entity';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -12,9 +12,13 @@ export class TransactionsRepository {
     private repository: Repository<Transaction>
   ) {}
 
-  async create(createDto: CreateTransactionDto): Promise<Transaction> {
-    const transaction = this.repository.create(createDto);
-    return await this.repository.save(transaction);
+  async create(
+    createDto: CreateTransactionDto,
+    manager?: EntityManager
+  ): Promise<Transaction> {
+    const repo = manager ? manager.getRepository(Transaction) : this.repository;
+    const transaction = repo.create(createDto);
+    return await repo.save(transaction);
   }
 
   async findAll(): Promise<Transaction[]> {

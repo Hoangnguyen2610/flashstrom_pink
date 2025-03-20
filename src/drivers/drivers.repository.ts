@@ -66,5 +66,45 @@ export class DriversRepository {
       where: { user_id: userId }
     });
   }
-  // Ghi chú: Nếu cần truy cập manager, sử dụng this.driverEntityRepository.manager từ service
+  async updateVehicleImages(
+    id: string,
+    vehicleImages: Array<{ key: string; url: string }>
+  ): Promise<Driver> {
+    // Lấy driver hiện tại
+    const driver = await this.findById(id);
+    if (!driver) {
+      throw new Error('Driver not found');
+    }
+
+    // Khởi tạo vehicle nếu chưa có
+    if (!driver.vehicle) {
+      driver.vehicle = {
+        license_plate: '',
+        model: '',
+        color: '',
+        images: [],
+        brand: '',
+        year: 2000,
+        owner: ''
+      };
+    }
+
+    // Gộp images hiện tại với images mới
+    const updatedVehicleImages = [
+      ...(driver.vehicle.images || []),
+      ...vehicleImages
+    ];
+
+    // Cập nhật vehicle với images mới
+    await this.driverEntityRepository.update(id, {
+      vehicle: {
+        ...driver.vehicle,
+        images: updatedVehicleImages
+      },
+      updated_at: Math.floor(Date.now() / 1000)
+    });
+
+    // Trả về driver đã cập nhật
+    return await this.findById(id);
+  }
 }

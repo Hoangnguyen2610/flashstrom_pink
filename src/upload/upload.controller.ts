@@ -4,9 +4,10 @@ import {
   UseInterceptors,
   UploadedFile,
   Body,
-  Inject
+  Inject,
+  UploadedFiles
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
 import { memoryStorage } from 'multer';
 import { RestaurantsService } from 'src/restaurants/restaurants.service';
@@ -79,6 +80,74 @@ export class UploadController {
     }
 
     return createResponse('OK', updatedEntity, 'Avatar uploaded successfully');
+  }
+
+  @Post('galleries')
+  @UseInterceptors(
+    FilesInterceptor('files', 10, {
+      storage: memoryStorage()
+    })
+  )
+  async uploadGalleries(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('userType') userType: Enum_AvatarType,
+    @Body('entityId') entityId: string
+  ) {
+    if (!files || files.length === 0) {
+      return createResponse('MissingInput', null, 'No files uploaded');
+    }
+
+    try {
+      const uploadPromises = files.map(file =>
+        this.uploadService.uploadImage(file)
+      );
+      const uploadResults = await Promise.all(uploadPromises);
+
+      const formattedResults = uploadResults.map(result => ({
+        key: result.public_id,
+        url: result.url
+      }));
+
+      let updatedEntity;
+      switch (userType) {
+        case Enum_AvatarType.RESTAURANT_OWNER:
+          updatedEntity = await this.restaurantService.updateImageGalleries(
+            // Sửa tên
+            formattedResults,
+            entityId
+          );
+          break;
+        case Enum_AvatarType.DRIVER:
+          updatedEntity = await this.driverService.updateVehicleImages(
+            formattedResults,
+            entityId
+          );
+          break;
+        default:
+          return createResponse(
+            'InvalidFormatInput',
+            null,
+            'Invalid user type'
+          );
+      }
+
+      if (
+        updatedEntity &&
+        'status' in updatedEntity &&
+        updatedEntity.status === 'NotFound'
+      ) {
+        return updatedEntity;
+      }
+
+      return createResponse(
+        'OK',
+        updatedEntity,
+        'Galleries uploaded successfully'
+      );
+    } catch (error) {
+      console.error('Error uploading galleries:', error);
+      return createResponse('ServerError', null, 'Failed to upload galleries');
+    }
   }
 
   @Post('image')

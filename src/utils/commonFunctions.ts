@@ -50,13 +50,18 @@ export const generateRandomEmail = (): {
 
 // Hàm tạo chuỗi ngẫu nhiên có ý nghĩa
 function generatePrefixEmail() {
-  const randomString = uniqueNamesGenerator({
-    dictionaries: [adjectives, animals], // Kết hợp tính từ và danh từ (ví dụ: "happy" + "tiger")
-    length: 2 // Số lượng từ kết hợp (2: tính từ + danh từ)
+  const adjective = uniqueNamesGenerator({
+    dictionaries: [adjectives],
+    length: 1
   });
+  const animal = uniqueNamesGenerator({
+    dictionaries: [animals],
+    length: 1
+  });
+  const randomString = `${adjective}-${animal}`;
   return {
     prefixEmail: `${randomString}${Math.floor(Math.random() * 100)}`,
-    first_name: randomString[0],
-    last_name: randomString[1]
-  }; // Ví dụ: "happy-tiger"
+    first_name: adjective,
+    last_name: animal
+  };
 }

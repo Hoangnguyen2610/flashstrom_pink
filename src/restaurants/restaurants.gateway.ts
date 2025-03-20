@@ -1,4 +1,3 @@
-// restaurants.gateway.ts
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -23,6 +22,7 @@ import {
 } from 'src/orders/entities/order.entity';
 import { WsResponse } from '@nestjs/websockets';
 import { OrdersRepository } from 'src/orders/orders.repository';
+import { JwtService } from '@nestjs/jwt';
 
 interface AvailableDriver {
   id: string;
@@ -57,41 +57,56 @@ export class RestaurantsGateway
     @Inject(forwardRef(() => DriversService))
     private readonly driverService: DriversService,
     private eventEmitter: EventEmitter2,
-    private readonly ordersRepository: OrdersRepository
+    private readonly ordersRepository: OrdersRepository,
+    private readonly jwtService: JwtService
   ) {}
 
   afterInit() {
     console.log('Restaurant Gateway initialized!');
   }
 
-  handleConnection(client: Socket) {
+  private async validateToken(client: Socket): Promise<any> {
+    try {
+      const authHeader = client.handshake.headers.auth as string;
+      if (!authHeader?.startsWith('Bearer ')) {
+        client.disconnect();
+        return null;
+      }
+
+      const token = authHeader.slice(7);
+      if (!token) {
+        client.disconnect();
+        return null;
+      }
+
+      const decoded = await this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET
+      });
+
+      return decoded;
+    } catch (error) {
+      console.error('Token validation error:', error);
+      client.disconnect();
+      return null;
+    }
+  }
+
+  async handleConnection(client: Socket) {
     console.log('⚡️ Client connected to restaurant namespace:', client.id);
+    const restaurantData = await this.validateToken(client);
+    if (!restaurantData) return;
+
+    const restaurantId = restaurantData.id; // Giả sử token có field `id`
+    if (restaurantId) {
+      client.join(`restaurant_${restaurantId}`);
+      console.log(
+        `Restaurant auto-joined restaurant_${restaurantId} via token`
+      );
+    }
   }
 
   handleDisconnect(client: Socket) {
     console.log('❌ Client disconnected from restaurant namespace:', client.id);
-  }
-
-  @SubscribeMessage('joinRoomRestaurant')
-  handleJoinRoom(client: Socket, data: any) {
-    const restaurantId =
-      typeof data === 'string' ? data : data?.channel || data?._id || data;
-
-    try {
-      client.join(`restaurant_${restaurantId}`);
-      console.log(`restaurant_${restaurantId} joined`);
-
-      return {
-        event: 'joinRoomRestaurant',
-        data: `Joined restaurant_${restaurantId}`
-      };
-    } catch (error) {
-      console.error('❌ Error joining room:', error);
-      return {
-        event: 'error',
-        data: 'Failed to join room'
-      };
-    }
   }
 
   @SubscribeMessage('updateRestaurant')
@@ -109,12 +124,9 @@ export class RestaurantsGateway
   @SubscribeMessage('newOrderForRestaurant')
   async handleNewOrder(@MessageBody() order: any) {
     const restaurantId = order.restaurant_id;
-
-    console.log('Emitting to room:', `restaurant_${restaurantId}`);
     await this.server
       .to(`restaurant_${restaurantId}`)
       .emit('incomingOrder', order);
-
     return order;
   }
 
@@ -124,17 +136,13 @@ export class RestaurantsGateway
   ): Promise<WsResponse<any>> {
     try {
       const { availableDrivers, orderDetails: orderId } = data;
-
       const fullOrderDetails =
         await this.restaurantsService.getOrderById(orderId);
       if (!fullOrderDetails) {
-        return {
-          event: 'error',
-          data: { message: 'Order not found' }
-        };
+        return { event: 'error', data: { message: 'Order not found' } };
       }
 
-      // Update order status to RESTAURANT_ACCEPTED and tracking to ORDER_RECEIVED
+      // Cập nhật trạng thái đầu tiên
       await this.ordersRepository.update(orderId, {
         status: OrderStatus.RESTAURANT_ACCEPTED,
         tracking_info: OrderTrackingInfo.ORDER_RECEIVED
@@ -142,10 +150,7 @@ export class RestaurantsGateway
 
       const mappedDrivers = availableDrivers.map(item => ({
         id: item.id,
-        location: {
-          lat: item.lat,
-          lng: item.lng
-        },
+        location: { lat: item.lat, lng: item.lng },
         active_points: 0,
         current_order_id: []
       }));
@@ -168,14 +173,6 @@ export class RestaurantsGateway
           fullOrderDetails.customerAddress as unknown as {
             location: { lat: number; lng: number };
           };
-        console.log(
-          'check fullorder details',
-          fullOrderDetails,
-          'driver cus location',
-          customer_location?.location,
-          'check res location',
-          res_location?.location
-        );
         const distance = calculateDistance(
           customer_location?.location?.lat ?? 0,
           customer_location?.location?.lng ?? 0,
@@ -183,35 +180,29 @@ export class RestaurantsGateway
           res_location?.location?.lng ?? 0
         );
 
-        // Update order với driver_id, distance, và trạng thái PREPARING
-        const orderAssignment = {
-          ...fullOrderDetails,
-          driver_id: selectedDriver.id,
-          driver_wage: FIXED_DELIVERY_DRIVER_WAGE,
-          tracking_info: OrderTrackingInfo.PREPARING, // Khi assign driver thì bắt đầu chuẩn bị
-          status: OrderStatus.PREPARING, // Nhà hàng bắt đầu chuẩn bị
-          distance: distance
-        };
-        console.log('orderAssignment', orderAssignment);
-        const orderWithDistance = await this.ordersRepository.update(orderId, {
-          driver_id: selectedDriver.id,
+        // Cập nhật trạng thái thứ hai với dữ liệu thuần
+        const updatedFields = {
           distance: +distance,
           status: OrderStatus.PREPARING,
-          tracking_info: OrderTrackingInfo.PREPARING
-        });
-        console.log('orderAssignment', orderWithDistance);
+          tracking_info: OrderTrackingInfo.PREPARING,
+          driver_wage: FIXED_DELIVERY_DRIVER_WAGE
+        };
+        console.log('Fields to update:', updatedFields);
+        await this.ordersRepository.update(orderId, updatedFields);
+
+        // Lấy dữ liệu order sau khi cập nhật để emit và notify
+        const orderWithDistance = await this.ordersRepository.findById(orderId);
+        if (!orderWithDistance) {
+          throw new Error('Failed to retrieve updated order');
+        }
 
         await this.eventEmitter.emit(
           'order.assignedToDriver',
           orderWithDistance
         );
-
         await this.notifyPartiesOnce(orderWithDistance);
 
-        return {
-          event: 'orderAssigned',
-          data: orderWithDistance
-        };
+        return { event: 'orderAssigned', data: orderWithDistance };
       }
 
       return {
@@ -220,110 +211,10 @@ export class RestaurantsGateway
       };
     } catch (error) {
       console.error('Error in handleRestaurantAcceptWithDrivers:', error);
-      return {
-        event: 'error',
-        data: { message: 'Internal server error' }
-      };
+      return { event: 'error', data: { message: 'Internal server error' } };
     }
   }
 
-  @OnEvent('incomingOrder')
-  async handleIncomingOrder(@MessageBody() order: any) {
-    console.log('Received incomingOrder event:', order);
-    return {
-      event: 'incomingOrder',
-      data: order,
-      message: 'Order received successfully'
-    };
-  }
-
-  async emitOrderStatusUpdate(order: any) {
-    try {
-      this.server
-        .to(`restaurant_${order.restaurant_id}`)
-        .emit('orderStatusUpdated', order);
-
-      if (order.customer_id) {
-        this.server
-          .to(`customer_${order.customer_id}`)
-          .emit('orderStatusUpdated', order);
-      }
-
-      if (order.driver_id) {
-        this.server
-          .to(`driver_${order.driver_id}`)
-          .emit('orderStatusUpdated', order);
-      }
-
-      console.log('✅ Order status update emitted successfully');
-    } catch (error) {
-      console.error('❌ Error emitting order status update:', error);
-    }
-  }
-
-  @OnEvent('orderTrackingUpdate')
-  async handleOrderTrackingUpdate(@MessageBody() order: any) {
-    return {
-      event: 'orderTrackingUpdate',
-      data: order,
-      message: `orderTrackingUpdate: ${order}`
-    };
-  }
-
-  @OnEvent('listenUpdateOrderTracking')
-  async handleListenUpdateOrderTracking(@MessageBody() order: any) {
-    await this.server
-      .to(`restaurant_${order.restaurant_id}`)
-      .emit('orderTrackingUpdate', {
-        event: 'orderTrackingUpdate',
-        data: order,
-        message: 'Order received successfully'
-      });
-    return {
-      event: 'listenUpdateOrderTracking',
-      data: order,
-      message: `listenUpdateOrderTracking ${order}`
-    };
-  }
-
-  private async notifyPartiesOnce(order: any) {
-    const notifyKey = `notify_${order.id}`;
-
-    if (this.notificationLock.get(notifyKey)) {
-      return;
-    }
-
-    try {
-      this.notificationLock.set(notifyKey, true);
-      const trackingUpdate = {
-        orderId: order.id,
-        status: order.status,
-        tracking_info: order.tracking_info,
-        updated_at: order.updated_at,
-        customer_id: order.customer_id,
-        driver_id: order.driver_id,
-        restaurant_id: order.restaurant_id
-      };
-      console.log('trackingUpdate', trackingUpdate);
-
-      // Emit event theo trạng thái
-      if (order.status === OrderStatus.RESTAURANT_ACCEPTED) {
-        this.eventEmitter.emit('restaurantOrderAccepted', trackingUpdate);
-      } else if (order.status === OrderStatus.PREPARING) {
-        this.eventEmitter.emit('restaurantPreparingOrder', trackingUpdate);
-      } else if (order.status === OrderStatus.READY_FOR_PICKUP) {
-        this.eventEmitter.emit('restaurantOrderReady', trackingUpdate);
-      }
-
-      console.log(
-        `Emitted event for order ${order.id} with status ${order.status}`
-      );
-    } finally {
-      this.notificationLock.delete(notifyKey);
-    }
-  }
-
-  // Thêm handler cho READY_FOR_PICKUP nếu cần
   @SubscribeMessage('restaurantOrderReady')
   async handleRestaurantOrderReady(@MessageBody() data: { orderId: string }) {
     try {
@@ -332,19 +223,65 @@ export class RestaurantsGateway
         status: OrderStatus.READY_FOR_PICKUP,
         tracking_info: OrderTrackingInfo.RESTAURANT_PICKUP
       });
-
       await this.notifyPartiesOnce(order);
-
-      return {
-        event: 'orderReadyForPickup',
-        data: order
-      };
+      return { event: 'orderReadyForPickup', data: order };
     } catch (error) {
       console.error('Error in handleRestaurantOrderReady:', error);
-      return {
-        event: 'error',
-        data: { message: 'Internal server error' }
-      };
+      return { event: 'error', data: { message: 'Internal server error' } };
     }
+  }
+
+  public async notifyPartiesOnce(order: any) {
+    const notifyKey = `notify_${order.id}`;
+    if (this.notificationLock.get(notifyKey)) return;
+
+    try {
+      this.notificationLock.set(notifyKey, true);
+      const trackingUpdate = {
+        orderDetails: order,
+        orderId: order.id,
+        order_items: order.order_items,
+        status: order.status,
+        total_amount: order.total_amount,
+        tracking_info: order.tracking_info,
+        updated_at: order.updated_at,
+        customer_id: order.customer_id,
+        driver_id: order.driver_id,
+        restaurant_id: order.restaurant_id,
+        driver_tips: order.driver_tips || 0 // Thêm driver_tips nếu có
+      };
+      // Emit qua EventEmitter2 cho customer
+      this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
+      // Emit qua EventEmitter2 cho driver
+      this.eventEmitter.emit('notifyDriverOrderStatus', trackingUpdate);
+      // Chỉ emit trực tiếp cho restaurant trong namespace này
+      this.server
+        .to(`restaurant_${order.restaurant_id}`)
+        .emit('notifyOrderStatus', trackingUpdate);
+      console.log(`Emitted notifyOrderStatus for order ${order.id}`);
+    } finally {
+      this.notificationLock.delete(notifyKey);
+    }
+  }
+
+  @OnEvent('listenUpdateOrderTracking')
+  async handleListenUpdateOrderTracking(@MessageBody() order: any) {
+    await this.server
+      .to(`restaurant_${order.restaurant_id}`)
+      .emit('notifyOrderStatus', {
+        orderId: order.orderId,
+        status: order.status,
+        tracking_info: order.tracking_info,
+        updated_at: order.updated_at,
+        customer_id: order.customer_id,
+        driver_id: order.driver_id,
+        restaurant_id: order.restaurant_id,
+        driver_tips: order.driver_tips || 0 // Thêm driver_tips
+      });
+    return {
+      event: 'notifyOrderStatus',
+      data: order,
+      message: `Notified restaurant ${order.restaurant_id}`
+    };
   }
 }

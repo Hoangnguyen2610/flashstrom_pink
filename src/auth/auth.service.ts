@@ -27,21 +27,30 @@ export class AuthService {
   ) {}
 
   async register(userData: any, type: Enum_UserType): Promise<any> {
+    console.log('Starting registration process with data:', { userData, type });
+
     const { email, password, phone } = userData;
+    console.log('Extracted credentials:', { email, phone });
 
     if (!this.validateRegistrationInput(email, password)) {
+      console.log('Registration validation failed - missing email or password');
       return createResponse(
         'InvalidFormatInput',
         null,
         'Email & Password cannot be empty'
       );
     }
+    console.log('Registration input validation passed');
 
     const existingUser = await this.findUserByEmail(email);
+    console.log('Existing user check result:', { exists: !!existingUser });
+
     if (existingUser) {
+      console.log('Found existing user, handling existing user registration');
       return this.handleExistingUserRegistration(existingUser, userData, type);
     }
 
+    console.log('No existing user found, creating new registration');
     return this.createNewUserRegistration(userData, type, phone);
   }
 
@@ -813,6 +822,12 @@ export class AuthService {
         break;
 
       case Enum_UserType.F_WALLET:
+        console.log('check what happen', {
+          ...userData,
+          password: hashedPassword,
+          user_id: newUser.id,
+          balance: 0
+        });
         newUserWithRole = await this.fWalletsRepository.create({
           ...userData,
           password: hashedPassword,

@@ -9,10 +9,12 @@ import { DriversModule } from 'src/drivers/drivers.module';
 import { Driver } from 'src/drivers/entities/driver.entity';
 import { Order } from 'src/orders/entities/order.entity';
 import { OrdersRepository } from 'src/orders/orders.repository';
+import { PromotionsRepository } from 'src/promotions/promotions.repository';
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DriverProgressStage, Driver, Order]),
+    TypeOrmModule.forFeature([DriverProgressStage, Driver, Order, Promotion]),
     forwardRef(() => DriversModule)
   ],
   controllers: [DriverProgressStagesController],
@@ -20,6 +22,7 @@ import { OrdersRepository } from 'src/orders/orders.repository';
     DriverProgressStagesService,
     DriverProgressStagesRepository,
     DriversRepository,
+    PromotionsRepository,
     OrdersRepository
   ],
   exports: [DriverProgressStagesService, DriverProgressStagesRepository]

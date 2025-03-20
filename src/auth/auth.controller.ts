@@ -4,7 +4,7 @@ import { EmailService } from 'src/mailer/email.service';
 import { UsersService } from 'src/users/users.service';
 import { createResponse } from 'src/utils/createResponse';
 import { Enum_UserType } from 'src/types/Payload';
-import { createRestaurantSignup } from 'src/restaurants/dto/create-restaurant.dto';
+import { CreateRestaurantSignup } from 'src/restaurants/dto/create-restaurant.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -96,7 +96,7 @@ export class AuthController {
   @Post('register-restaurant')
   async registerRestaurant(
     @Body()
-    userData: createRestaurantSignup
+    userData: CreateRestaurantSignup
   ) {
     const fullUserData = {
       ...userData,
@@ -149,7 +149,7 @@ export class AuthController {
       userData,
       Enum_UserType.F_WALLET
     );
-
+    console.log('check res', registrationResponse);
     // If registration is successful
     if (registrationResponse?.data?.data) {
       const code = await this.emailService.sendVerificationEmail(

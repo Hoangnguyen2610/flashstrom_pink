@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CreateDriverDto } from './dto/create-driver.dto';
+import { CreateDriverDto, UpdateVehicleDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 import { Driver } from './entities/driver.entity';
 import { createResponse } from 'src/utils/createResponse';
@@ -440,5 +440,102 @@ export class DriversService {
       null,
       'An error occurred while processing your request'
     );
+  }
+  async updateVehicleImages(
+    uploadResults: Array<{ key: string; url: string }>,
+    entityId: string
+  ) {
+    try {
+      const driver = await this.driversRepository.findById(entityId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      const updatedDriver = await this.driversRepository.updateVehicleImages(
+        entityId,
+        uploadResults
+      );
+
+      return createResponse(
+        'OK',
+        updatedDriver,
+        'Driver vehicle images updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating driver vehicle images:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Failed to update vehicle images'
+      );
+    }
+  }
+
+  async updateVehicle(
+    driverId: string,
+    updateVehicleDto: UpdateVehicleDto
+  ): Promise<ApiResponse<Driver>> {
+    try {
+      // Tìm driver
+      const driver = await this.driversRepository.findById(driverId);
+      if (!driver) {
+        return createResponse('NotFound', null, 'Driver not found');
+      }
+
+      // Khởi tạo vehicle nếu chưa có
+      if (!driver.vehicle) {
+        driver.vehicle = {
+          license_plate: '',
+          model: '',
+          color: '',
+          images: [],
+          brand: '',
+          owner: '',
+          year: 2000
+        };
+      }
+
+      // Cập nhật các trường trong vehicle (không chạm đến images)
+      const updatedVehicle = {
+        ...driver.vehicle,
+        license_plate:
+          updateVehicleDto.license_plate ?? driver.vehicle.license_plate,
+        model: updateVehicleDto.model ?? driver.vehicle.model,
+        color: updateVehicleDto.color ?? driver.vehicle.color,
+        brand: updateVehicleDto.brand ?? driver.vehicle.brand,
+        owner: updateVehicleDto.owner ?? driver.vehicle.owner,
+        year: updateVehicleDto.year ?? driver.vehicle.year,
+        images: driver.vehicle.images // Giữ nguyên images
+      };
+      console.log(
+        'check update vehicle',
+        updatedVehicle,
+        '----',
+        updateVehicleDto
+      );
+      // Cập nhật driver với vehicle mới
+      const updateData: Partial<Driver> = {
+        vehicle: updatedVehicle,
+        updated_at: Math.floor(Date.now() / 1000)
+      };
+
+      const updatedDriver = await this.driversRepository.update(
+        driverId,
+        updateData
+      );
+
+      return createResponse(
+        'OK',
+        updatedDriver,
+        'Driver vehicle updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating driver vehicle:', error);
+      return createResponse(
+        'ServerError',
+        null,
+        'Failed to update driver vehicle'
+      );
+    }
   }
 }

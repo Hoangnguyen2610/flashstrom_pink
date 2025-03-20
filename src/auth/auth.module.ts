@@ -50,6 +50,9 @@ import { CartItem } from 'src/cart_items/entities/cart_item.entity';
 import { CartItemsRepository } from 'src/cart_items/cart_items.repository';
 import { CustomerCaresRepository } from 'src/customer_cares/customer_cares.repository';
 import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
+import { TransactionService } from 'src/transactions/transactions.service';
+import { Transaction } from 'src/transactions/entities/transaction.entity';
+import { TransactionsRepository } from 'src/transactions/transactions.repository';
 @Module({
   imports: [
     JwtModule.register({
@@ -67,6 +70,7 @@ import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
       Driver,
       Restaurant,
       MenuItem,
+      Transaction,
       MenuItemVariant,
       Order,
       CartItem,
@@ -91,6 +95,7 @@ import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
     JwtStrategy,
     EmailService,
     UsersService,
+    TransactionsRepository,
     DriversService,
     FWalletService,
     RestaurantsService,
@@ -104,6 +109,7 @@ import { CustomerCare } from 'src/customer_cares/entities/customer_care.entity';
     FoodCategoriesRepository,
     FWalletsRepository,
     DriversRepository,
+    TransactionService,
     CustomersRepository,
     MenuItemsRepository,
     MenuItemVariantsRepository,

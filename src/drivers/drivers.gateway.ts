@@ -29,6 +29,7 @@ import { Driver } from './entities/driver.entity';
 import { AddressBookRepository } from 'src/address_book/address_book.repository';
 import { DriversRepository } from './drivers.repository';
 import { StageDto } from 'src/driver_progress_stages/dto/create-driver-progress-stage.dto';
+import { JwtService } from '@nestjs/jwt';
 // import { SemaphoreService } from 'src/semaphor/semaphore.service';
 
 @WebSocketGateway({
@@ -50,7 +51,8 @@ export class DriversGateway
   private activeConnections = new Map<string, Socket>();
   private dpsCreationLocks = new Set<string>();
   private requestQueue: Map<string, Promise<void>> = new Map();
-  private processingOrders: Set<string> = new Set(); //
+  private processingOrders: Set<string> = new Set();
+
   constructor(
     private readonly restaurantsService: RestaurantsService,
     @Inject(forwardRef(() => DriversService))
@@ -60,59 +62,53 @@ export class DriversGateway
     private readonly ordersService: OrdersService,
     private readonly driverProgressStageService: DriverProgressStagesService,
     private readonly dataSource: DataSource,
-    private readonly addressBookRepository: AddressBookRepository
+    private readonly addressBookRepository: AddressBookRepository,
+    private readonly jwtService: JwtService
   ) {}
 
   afterInit() {
     console.log('Driver Gateway initialized');
   }
 
-  @OnEvent('order.assignedToDriver')
-  async handleOrderAssignedToDriver(orderAssignment: any) {
+  private async validateToken(client: Socket): Promise<any> {
     try {
-      const driverId = orderAssignment.driver_id;
-
-      if (!driverId) {
-        throw new WsException('Driver ID is required');
+      const authHeader = client.handshake.headers.auth as string;
+      if (!authHeader?.startsWith('Bearer ')) {
+        client.disconnect();
+        return null;
       }
-      console.log('order.assignedToDriver 1', orderAssignment);
 
-      await this.server
-        .to(`driver_${driverId}`)
-        .emit('incomingOrderForDriver', {
-          event: 'incomingOrderForDriver',
-          data: orderAssignment,
-          message: 'Order received successfully'
-        });
-      console.log('order.assignedToDriver 2', orderAssignment);
+      const token = authHeader.slice(7);
+      if (!token) {
+        client.disconnect();
+        return null;
+      }
 
-      return {
-        event: 'orderAssigned',
-        data: { success: true }
-      };
+      const decoded = await this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET
+      });
+
+      return decoded;
     } catch (error) {
-      console.error('Error handling order.assignedToDriver:', error);
-      if (error instanceof WsException) {
-        throw error;
-      }
-      throw new WsException('Internal server error');
+      console.error('Token validation error:', error);
+      client.disconnect();
+      return null;
     }
   }
 
-  @OnEvent('incomingOrderForDriver')
-  async handleIncomingOrderForDriver(@MessageBody() order: any) {
-    console.log('Received incomingOrderForDriver event:', order);
-    return {
-      event: 'incomingOrder',
-      data: order,
-      message: 'Order received successfully'
-    };
-  }
+  async handleConnection(client: Socket) {
+    const driverData = await this.validateToken(client);
+    if (!driverData) return;
 
-  handleConnection(client: Socket) {
-    const driverId = client.handshake.query.driverId as string;
+    const driverId = driverData.id; // Giả sử token có field `id`
     if (driverId) {
       this.cleanupDriverConnections(driverId);
+      if (!this.driverSockets.has(driverId)) {
+        this.driverSockets.set(driverId, new Set());
+      }
+      this.driverSockets.get(driverId)?.add(client.id);
+      client.join(`driver_${driverId}`);
+      console.log(`Driver auto-joined driver_${driverId} via token`);
     }
     this.activeConnections.set(client.id, client);
   }
@@ -136,33 +132,6 @@ export class DriversGateway
     if (driverId) {
       this.processingOrders.delete(`${driverId}_*`);
       this.dpsCreationLocks.delete(driverId);
-    }
-  }
-
-  @SubscribeMessage('joinRoomDriver')
-  handleJoinRoom(client: Socket, data: any) {
-    const driverId =
-      typeof data === 'string' ? data : data?.channel || data?._id || data;
-
-    try {
-      if (!this.driverSockets.has(driverId)) {
-        this.driverSockets.set(driverId, new Set());
-      }
-      this.driverSockets.get(driverId)?.add(client.id);
-
-      client.join(`driver_${driverId}`);
-      console.log(`Driver joined driver_${driverId}`);
-
-      return {
-        event: 'joinRoomDriver',
-        data: `Joined driver_${driverId}`
-      };
-    } catch (error) {
-      console.error('❌ Error joining room:', error);
-      return {
-        event: 'error',
-        data: 'Failed to join room'
-      };
     }
   }
 
@@ -204,26 +173,19 @@ export class DriversGateway
     try {
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
+          // Logic giữ nguyên, chỉ cắt emit thừa
           const order = await transactionalEntityManager
             .createQueryBuilder(Order, 'order')
             .setLock('pessimistic_write')
             .where('order.id = :id', { id: orderId })
             .getOne();
-          if (!order) {
-            throw new WsException('Order not found');
-          }
-          console.log(
-            `Order locked: ${order.id}, Current driver_id: ${order.driver_id}`
-          );
+          if (!order) throw new WsException('Order not found');
 
           if (order.driver_id && order.driver_id !== driverId) {
             throw new WsException(
               `Order is already assigned to driver ${order.driver_id}`
             );
           } else if (order.driver_id === driverId) {
-            console.log(
-              `Driver ${driverId} is re-accepting their own order ${orderId}`
-            );
             return {
               success: true,
               message: 'Order already assigned to this driver',
@@ -249,9 +211,7 @@ export class DriversGateway
               where: { id: driverId },
               relations: ['current_orders']
             });
-          if (!driver) {
-            throw new WsException('Driver not found');
-          }
+          if (!driver) throw new WsException('Driver not found');
 
           const currentOrderCount = driver.current_orders?.length || 0;
           if (currentOrderCount >= 3) {
@@ -260,7 +220,6 @@ export class DriversGateway
             );
           }
 
-          // Fix ở đây: Kiểm tra DPS chưa hoàn thành bằng Like
           const existingDPS = await transactionalEntityManager
             .getRepository(DriverProgressStage)
             .findOne({
@@ -270,7 +229,6 @@ export class DriversGateway
               },
               relations: ['orders']
             });
-          console.log(`Existing DPS: ${existingDPS ? existingDPS.id : 'none'}`);
 
           let dps: DriverProgressStage;
           if (!existingDPS) {
@@ -282,16 +240,9 @@ export class DriversGateway
               },
               transactionalEntityManager
             );
-            console.log(`DPS Response: ${JSON.stringify(dpsResponse)}`);
-            if (dpsResponse.EC !== 0 || !dpsResponse.data) {
-              throw new WsException(
-                `Failed to create new DPS: ${dpsResponse.EM || 'Unknown error'}`
-              );
-            }
+            if (dpsResponse.EC !== 0 || !dpsResponse.data)
+              throw new WsException(`Failed to create new DPS`);
             dps = dpsResponse.data;
-            console.log(
-              `New DPS created: ${dps.id}, Orders: ${JSON.stringify(dps.orders)}`
-            );
           } else {
             const dpsResponse =
               await this.driverProgressStageService.addOrderToExistingDPS(
@@ -299,16 +250,9 @@ export class DriversGateway
                 order,
                 transactionalEntityManager
               );
-            console.log(`DPS Response: ${JSON.stringify(dpsResponse)}`);
-            if (dpsResponse.EC !== 0 || !dpsResponse.data) {
-              throw new WsException(
-                `Failed to add order to existing DPS: ${dpsResponse.EM || 'Unknown error'}`
-              );
-            }
+            if (dpsResponse.EC !== 0 || !dpsResponse.data)
+              throw new WsException(`Failed to add order to existing DPS`);
             dps = dpsResponse.data;
-            console.log(
-              `Order added to existing DPS: ${dps.id}, Orders: ${JSON.stringify(dps.orders)}`
-            );
           }
 
           const reloadedDps = await transactionalEntityManager
@@ -322,28 +266,20 @@ export class DriversGateway
             !reloadedDps.orders ||
             reloadedDps.orders.length === 0
           ) {
-            console.error(`DPS ${dps.id} is empty or has no orders!`);
             throw new WsException('DPS created but orders are empty');
           }
           dps = reloadedDps;
-          console.log(
-            `Reloaded DPS: ${dps.id}, Orders: ${JSON.stringify(dps.orders)}`
-          );
 
           order.driver_id = driverId;
           order.status = OrderStatus.DISPATCHED;
           order.tracking_info = OrderTrackingInfo.DISPATCHED;
+          order.updated_at = Math.floor(Date.now() / 1000);
           await transactionalEntityManager.save(Order, order);
-          console.log(`Order ${orderId} updated with driver ${driverId}`);
 
           driver.current_orders = driver.current_orders || [];
-          if (!driver.current_orders.some(o => o.id === orderId)) {
+          if (!driver.current_orders.some(o => o.id === orderId))
             driver.current_orders.push(order);
-          }
           await transactionalEntityManager.save(Driver, driver);
-          console.log(
-            `Added order ${orderId} to driver ${driverId} current_orders`
-          );
 
           await this.notifyPartiesOnce(order);
 
@@ -369,8 +305,6 @@ export class DriversGateway
     @MessageBody() data: { stageId: string; orderId?: string }
   ) {
     try {
-      console.log('🚀 Starting handleDriverProgressUpdate with data:', data);
-
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
           const dps = await transactionalEntityManager
@@ -379,16 +313,12 @@ export class DriversGateway
               where: { id: data.stageId },
               relations: ['orders']
             });
-
-          if (!dps) {
-            console.log('❌ DPS not found for stageId:', data.stageId);
-            return { success: false, message: 'Stage not found' };
-          }
-
-          if (!dps.orders || dps.orders.length === 0) {
+          if (!dps || !dps.orders || dps.orders.length === 0) {
             return {
               success: false,
-              message: 'No orders associated with this stage'
+              message: !dps
+                ? 'Stage not found'
+                : 'No orders associated with this stage'
             };
           }
 
@@ -400,7 +330,6 @@ export class DriversGateway
             'en_route_to_customer',
             'delivery_complete'
           ];
-
           const stageToStatusMap = {
             driver_ready: OrderStatus.DISPATCHED,
             waiting_for_pickup: OrderStatus.READY_FOR_PICKUP,
@@ -408,7 +337,6 @@ export class DriversGateway
             en_route_to_customer: OrderStatus.EN_ROUTE,
             delivery_complete: OrderStatus.DELIVERED
           };
-
           const stageToTrackingMap = {
             driver_ready: OrderTrackingInfo.DISPATCHED,
             waiting_for_pickup: OrderTrackingInfo.PREPARING,
@@ -417,18 +345,15 @@ export class DriversGateway
             delivery_complete: OrderTrackingInfo.DELIVERED
           };
 
-          let targetOrderId = data.orderId;
-          if (!targetOrderId) {
-            const incompleteOrder = dps.orders.find((order, index) => {
+          let targetOrderId =
+            data.orderId ||
+            dps.orders.find((order, index) => {
               const orderSuffix = `order_${index + 1}`;
               const finalState = `delivery_complete_${orderSuffix}`;
               const finalStage = dps.stages.find(s => s.state === finalState);
               return finalStage && finalStage.status !== 'completed';
-            });
-            targetOrderId = incompleteOrder
-              ? incompleteOrder.id
-              : dps.orders[0].id;
-          }
+            })?.id ||
+            dps.orders[0].id;
 
           let updatedStages = [...dps.stages];
           let allCompleted = true;
@@ -436,7 +361,6 @@ export class DriversGateway
           for (const [index, order] of dps.orders.entries()) {
             const orderIndex = index + 1;
             const orderSuffix = `order_${orderIndex}`;
-
             let currentStageIndex = stageOrder.findIndex(baseState => {
               const state = `${baseState}_${orderSuffix}`;
               const stage = updatedStages.find(s => s.state === state);
@@ -478,15 +402,13 @@ export class DriversGateway
                   }
                   if (nextState && stage.state === nextState) {
                     if (nextStateBase === 'delivery_complete') {
-                      // Đặc biệt: Set delivery_complete thành completed ngay
                       return {
                         ...stage,
                         status: 'completed',
                         timestamp,
-                        duration: 0 // Hoặc tính duration nếu cần
+                        duration: 0
                       };
                     } else if (stage.status === 'pending') {
-                      // Các stage khác thì bình thường
                       return { ...stage, status: 'in_progress', timestamp };
                     }
                   }
@@ -496,23 +418,17 @@ export class DriversGateway
                 if (nextStateBase && nextStateBase in stageToStatusMap) {
                   const newStatus = stageToStatusMap[nextStateBase];
                   const newTrackingInfo = stageToTrackingMap[nextStateBase];
-                  console.log(
-                    `🔄 Updating order ${order.id} to status: ${newStatus}, tracking: ${newTrackingInfo}`
-                  );
-
                   await transactionalEntityManager.update(
                     Order,
                     { id: order.id },
                     {
                       status: newStatus,
-                      tracking_info: newTrackingInfo
+                      tracking_info: newTrackingInfo,
+                      updated_at: Math.floor(Date.now() / 1000)
                     }
                   );
 
                   if (nextStateBase === 'delivery_complete') {
-                    console.log(
-                      '🗑️ Removing order from driver_current_orders...'
-                    );
                     await transactionalEntityManager
                       .createQueryBuilder()
                       .delete()
@@ -536,15 +452,13 @@ export class DriversGateway
 
                 const newStatus = stageToStatusMap['driver_ready'];
                 const newTrackingInfo = stageToTrackingMap['driver_ready'];
-                console.log(
-                  `🔄 Updating order ${order.id} to initial status: ${newStatus}, tracking: ${newTrackingInfo}`
-                );
                 await transactionalEntityManager.update(
                   Order,
                   { id: order.id },
                   {
                     status: newStatus,
-                    tracking_info: newTrackingInfo
+                    tracking_info: newTrackingInfo,
+                    updated_at: Math.floor(Date.now() / 1000)
                   }
                 );
               }
@@ -552,9 +466,8 @@ export class DriversGateway
 
             const finalState = `delivery_complete_${orderSuffix}`;
             const finalStage = updatedStages.find(s => s.state === finalState);
-            if (!finalStage || finalStage.status !== 'completed') {
+            if (!finalStage || finalStage.status !== 'completed')
               allCompleted = false;
-            }
           }
 
           if (!allCompleted) {
@@ -588,15 +501,13 @@ export class DriversGateway
 
               const newStatus = stageToStatusMap['driver_ready'];
               const newTrackingInfo = stageToTrackingMap['driver_ready'];
-              console.log(
-                `🔄 Updating next order ${targetOrderId} to status: ${newStatus}, tracking: ${newTrackingInfo}`
-              );
               await transactionalEntityManager.update(
                 Order,
                 { id: targetOrderId },
                 {
                   status: newStatus,
-                  tracking_info: newTrackingInfo
+                  tracking_info: newTrackingInfo,
+                  updated_at: Math.floor(Date.now() / 1000)
                 }
               );
             }
@@ -626,13 +537,13 @@ export class DriversGateway
                   stage.status === 'completed'
               )
               .sort((a, b) => b.timestamp - a.timestamp)[0];
-            if (lastCompletedDelivery) {
-              newCurrentState = lastCompletedDelivery.state;
-              newPreviousState = dps.current_state;
-              newNextState = null;
-            } else {
-              newCurrentState = dps.current_state;
-            }
+            newCurrentState = lastCompletedDelivery
+              ? lastCompletedDelivery.state
+              : dps.current_state;
+            newPreviousState = lastCompletedDelivery
+              ? dps.current_state
+              : newPreviousState;
+            newNextState = lastCompletedDelivery ? null : newNextState;
           }
 
           const updateResult =
@@ -651,9 +562,8 @@ export class DriversGateway
             targetOrderId,
             transactionalEntityManager
           );
-          if (updatedOrder?.data) {
+          if (updatedOrder?.data)
             await this.notifyPartiesOnce(updatedOrder.data);
-          }
 
           return { success: true, stage: updateResult.data };
         }
@@ -666,18 +576,12 @@ export class DriversGateway
     }
   }
 
-  // drivers.gateway.ts (chỉ show đoạn handleDriverProgressUpdate)
-
-  private async notifyPartiesOnce(order: Order) {
+  public async notifyPartiesOnce(order: Order) {
     const notifyKey = `notify_${order.id}`;
-
-    if (this.notificationLock.get(notifyKey)) {
-      return;
-    }
+    if (this.notificationLock.get(notifyKey)) return;
 
     try {
       this.notificationLock.set(notifyKey, true);
-
       const trackingUpdate = {
         orderId: order.id,
         status: order.status,
@@ -685,40 +589,54 @@ export class DriversGateway
         updated_at: order.updated_at,
         customer_id: order.customer_id,
         driver_id: order.driver_id,
-        restaurant_id: order.restaurant_id
+        restaurant_id: order.restaurant_id,
+        driver_tips: order.driver_tips || 0 // Thêm driver_tips
       };
-
       this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
-      console.log(
-        `Emitted listenUpdateOrderTracking via EventEmitter for order ${order.id}`
-      );
+      this.eventEmitter.emit('notifyDriverOrderStatus', trackingUpdate); // Emit cho chính nó
+      this.server
+        .to(`restaurant_${order.restaurant_id}`)
+        .emit('notifyOrderStatus', trackingUpdate);
+      console.log(`Emitted notifyOrderStatus for order ${order.id}`);
     } finally {
       this.notificationLock.delete(notifyKey);
     }
   }
 
-  @OnEvent('orderTrackingUpdate')
-  async handleOrderTrackingUpdate(@MessageBody() order: any) {
+  @OnEvent('notifyDriverOrderStatus')
+  async handleNotifyDriverOrderStatus(@MessageBody() trackingUpdate: any) {
+    console.log(
+      'Received notifyDriverOrderStatus in DriversGateway:',
+      trackingUpdate
+    );
+    await this.server
+      .to(`driver_${trackingUpdate.driver_id}`)
+      .emit('notifyOrderStatus', trackingUpdate);
     return {
-      event: 'orderTrackingUpdate',
-      data: order,
-      message: `orderTrackingUpdate: ${order}`
+      event: 'notifyOrderStatus',
+      data: trackingUpdate,
+      message: `Notified driver ${trackingUpdate.driver_id}`
     };
   }
 
-  @OnEvent('listenUpdateOrderTracking')
-  async handleListenUpdateOrderTracking(@MessageBody() order: any) {
-    await this.server
-      .to(`driver_${order.driver_id}`)
-      .emit('orderTrackingUpdate', {
-        event: 'orderTrackingUpdate',
-        data: order,
-        message: 'Order received successfully'
-      });
-    return {
-      event: 'listenUpdateOrderTracking',
-      data: order,
-      message: `listenUpdateOrderTracking ${order}`
-    };
+  @OnEvent('order.assignedToDriver')
+  async handleOrderAssignedToDriver(orderAssignment: any) {
+    try {
+      const driverId = orderAssignment.driver_id;
+      if (!driverId) throw new WsException('Driver ID is required');
+      await this.server
+        .to(`driver_${driverId}`)
+        .emit('incomingOrderForDriver', {
+          event: 'incomingOrderForDriver',
+          data: orderAssignment,
+          message: 'Order received successfully'
+        });
+      return { event: 'orderAssigned', data: { success: true } };
+    } catch (error) {
+      console.error('Error handling order.assignedToDriver:', error);
+      throw new WsException(
+        error instanceof WsException ? error.message : 'Internal server error'
+      );
+    }
   }
 }

@@ -72,3 +72,29 @@ export class createDriverSignup extends CreateDriverDto {
   @IsString()
   phone: string;
 }
+
+export class UpdateVehicleDto {
+  @IsOptional()
+  @IsString()
+  license_plate?: string;
+
+  @IsOptional()
+  @IsString()
+  model?: string;
+
+  @IsOptional()
+  @IsString()
+  color?: string;
+
+  @IsOptional()
+  @IsNumber()
+  year?: number;
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  owner?: string;
+}

@@ -24,6 +24,14 @@ export class RestaurantsController {
     return this.restaurantsService.create(createRestaurantDto);
   }
 
+  @Post('apply-promotion')
+  applyPromotion(
+    @Body('restaurantId') restaurantId: string,
+    @Body('promotionId') promotionId: string
+  ) {
+    return this.restaurantsService.applyPromotion(restaurantId, promotionId);
+  }
+
   @Get()
   findAll() {
     return this.restaurantsService.findAll();

@@ -14,7 +14,7 @@ export const ResponseStatus = {
   InsufficientBalance: {
     httpCode: 400,
     message: 'Insufficient balance in the source wallet',
-    code: -5
+    code: -8
   }, // Insufficient balance in the source wallet
   NotAcceptingOrders: {
     httpCode: 400,
@@ -30,7 +30,23 @@ export const ResponseStatus = {
     httpCode: 400,
     message: 'Driver has reached maximum number of orders',
     code: -7
+  },
+  EXPIRED: {
+    httpCode: 400,
+    message: 'Expired',
+    code: -9
+  },
+  NOT_AVAILABLE: {
+    httpCode: 400,
+    message: 'Expired',
+    code: -9
   }
 };
 
 export const FIXED_DELIVERY_DRIVER_WAGE = 20;
+
+export const FLASHFOOD_FINANCE = {
+  id: 'F_WALLET_06f81c5e-8ef5-4072-85b2-dc3f19f91ef3',
+  user_id: 'USR_ee0f6d15-f7bf-4b97-a903-fa0406a43847',
+  email: 'flashfood.finance@gmail.com'
+};

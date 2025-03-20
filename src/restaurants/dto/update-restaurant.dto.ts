@@ -1,6 +1,19 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateRestaurantDto } from './create-restaurant.dto';
-import { IsString, IsOptional, IsArray, IsObject } from 'class-validator';
+import {
+  ContactEmail,
+  ContactPhone,
+  CreateRestaurantDto,
+  DailyHours,
+  Status
+} from './create-restaurant.dto';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsObject,
+  ValidateNested
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
@@ -16,6 +29,7 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   owner_name?: string;
 
   @IsOptional()
+  @IsString() // Sửa từ address_id thành kiểu string
   address_id?: string;
 
   @IsOptional()
@@ -28,10 +42,14 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ContactEmail) // Thêm validate nested như CreateRestaurantDto
   contact_email?: { title: string; is_default: boolean; email: string }[];
 
   @IsOptional()
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ContactPhone) // Thêm validate nested
   contact_phone?: { title: string; number: string; is_default: boolean }[];
 
   @IsOptional()
@@ -40,10 +58,12 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsArray()
-  images_gallery?: string[];
+  images_gallery?: Array<{ key: string; url: string }>;
 
   @IsOptional()
   @IsObject()
+  @ValidateNested() // Thêm validate nested
+  @Type(() => Status)
   status?: {
     is_open: boolean;
     is_active: boolean;
@@ -52,6 +72,7 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true }) // Validate từng phần tử là string
   promotions?: string[];
 
   @IsOptional()
@@ -63,10 +84,13 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsArray()
-  specialize_in?: string[];
+  @IsString({ each: true }) // Sửa specialize_in thành food_category_ids cho đồng bộ
+  food_category_ids?: string[];
 
   @IsOptional()
   @IsObject()
+  @ValidateNested() // Thêm validate nested
+  @Type(() => DailyHours)
   opening_hours?: {
     mon: { from: number; to: number };
     tue: { from: number; to: number };
@@ -76,8 +100,4 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
     sat: { from: number; to: number };
     sun: { from: number; to: number };
   };
-
-  @IsOptional()
-  @IsArray()
-  food_category_ids?: string[];
 }

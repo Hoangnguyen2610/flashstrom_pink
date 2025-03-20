@@ -27,6 +27,15 @@ export class FWalletController {
     return this.fWalletService.findAll(); // Use the findAll method in FWalletService
   }
 
+  @Get('history/:fwalletId')
+  findHistoryTransaction(@Param('fwalletId') fwalletId: string) {
+    return this.fWalletService.findHistoryTransaction(fwalletId);
+  }
+  @Get('search/:query')
+  searchByQuery(@Param('query') query: string) {
+    return this.fWalletService.findBySearchQuery(query);
+  }
+
   // Endpoint to get a specific FWallet by ID
   @Get(':id')
   findFWalletById(@Param('id') id: string) {

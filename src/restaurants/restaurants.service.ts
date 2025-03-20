@@ -22,6 +22,11 @@ import {
 } from 'src/orders/entities/order.entity';
 import { FoodCategoriesRepository } from 'src/food_categories/food_categories.repository';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
+import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dto';
+import { FWalletsRepository } from 'src/fwallets/fwallets.repository';
+import { TransactionService } from 'src/transactions/transactions.service';
+import { FLASHFOOD_FINANCE } from 'src/utils/constants';
+// import { Promotion } from 'src/promotions/entities/promotion.entity';
 
 @Injectable()
 export class RestaurantsService {
@@ -33,8 +38,10 @@ export class RestaurantsService {
     private readonly ordersRepository: OrdersRepository,
     private readonly menuItemsService: MenuItemsService,
     private readonly menuItemVariantsService: MenuItemVariantsService,
+    private readonly transactionsService: TransactionService,
     private readonly restaurantsGateway: RestaurantsGateway,
-    private readonly foodCategoryRepository: FoodCategoriesRepository
+    private readonly foodCategoryRepository: FoodCategoriesRepository,
+    private readonly fWalletsRepository: FWalletsRepository
   ) {}
 
   async create(
@@ -72,52 +79,42 @@ export class RestaurantsService {
         );
       }
 
-      // Check if owner exists using repository pattern
       const owner = await this.userRepository.findById(owner_id);
-      if (!owner) {
-        return createResponse('NotFound', null, 'Owner not found');
-      }
+      if (!owner) return createResponse('NotFound', null, 'Owner not found');
 
-      // Check if address exists
       const addressBookEntry =
         await this.addressRepository.findById(address_id);
-      if (!addressBookEntry) {
+      if (!addressBookEntry)
         return createResponse(
           'NotFound',
           null,
           'Address not found in address book'
         );
-      }
 
-      // Check if promotions exist using repository
       if (promotions && promotions.length > 0) {
         const foundPromotions =
           await this.promotionRepository.findByIds(promotions);
-        if (foundPromotions.length !== promotions.length) {
+        if (foundPromotions.length !== promotions.length)
           return createResponse(
             'NotFound',
             null,
             'One or more promotions not found'
           );
-        }
       }
 
-      // Check if food categories exist
       let specializeIn: FoodCategory[] = [];
       if (food_category_ids && food_category_ids.length > 0) {
         const foundCategories =
           await this.foodCategoryRepository.findByIds(food_category_ids);
-        if (foundCategories.length !== food_category_ids.length) {
+        if (foundCategories.length !== food_category_ids.length)
           return createResponse(
             'NotFound',
             null,
             'One or more food categories not found'
           );
-        }
         specializeIn = foundCategories;
       }
 
-      // Chuẩn bị restaurantDto, thêm specialize_in
       const restaurantDto: Partial<CreateRestaurantDto> & {
         specialize_in?: FoodCategory[];
       } = {
@@ -131,14 +128,12 @@ export class RestaurantsService {
         restaurant_name,
         status,
         images_gallery: images_gallery || [],
-        specialize_in: specializeIn // Thêm specialize_in vào DTO
+        specialize_in: specializeIn
       };
 
-      // Tạo restaurant
       const savedRestaurant = await this.restaurantsRepository.create(
         restaurantDto as CreateRestaurantDto
       );
-
       return createResponse(
         'OK',
         savedRestaurant,
@@ -155,87 +150,63 @@ export class RestaurantsService {
     updateRestaurantDto: UpdateRestaurantDto
   ): Promise<ApiResponse<Restaurant>> {
     try {
-      const {
-        owner_id,
-        promotions,
-        address_id,
-        images_gallery,
-        food_category_ids
-      } = updateRestaurantDto;
+      const { owner_id, promotions, address_id, food_category_ids } =
+        updateRestaurantDto;
 
-      // Check if restaurant exists
       const existingRestaurant = await this.restaurantsRepository.findById(id);
-      if (!existingRestaurant) {
+      if (!existingRestaurant)
         return createResponse('NotFound', null, 'Restaurant not found');
-      }
 
-      // Check if owner exists
       if (owner_id) {
         const owner = await this.userRepository.findById(owner_id);
-        if (!owner) {
-          return createResponse('NotFound', null, 'Owner not found');
-        }
+        if (!owner) return createResponse('NotFound', null, 'Owner not found');
       }
 
-      // Check if address exists
       if (address_id) {
         const addressBookEntry =
           await this.addressRepository.findById(address_id);
-        if (!addressBookEntry) {
+        if (!addressBookEntry)
           return createResponse(
             'NotFound',
             null,
             'Address not found in address book'
           );
-        }
       }
 
-      // Check if promotions exist
       if (promotions && promotions.length > 0) {
         const foundPromotions =
           await this.promotionRepository.findByIds(promotions);
-        if (foundPromotions.length !== promotions.length) {
+        if (foundPromotions.length !== promotions.length)
           return createResponse(
             'NotFound',
             null,
             'One or more promotions not found'
           );
-        }
       }
 
-      // Check if food categories exist
       let specializeIn: FoodCategory[] = [];
       if (food_category_ids && food_category_ids.length > 0) {
-        const foundCategories =
+        specializeIn =
           await this.foodCategoryRepository.findByIds(food_category_ids);
-        if (foundCategories.length !== food_category_ids.length) {
+        if (specializeIn.length !== food_category_ids.length)
           return createResponse(
             'NotFound',
             null,
             'One or more food categories not found'
           );
-        }
-        specializeIn = foundCategories;
       }
 
-      // Chuẩn bị updatedDto, thêm specialize_in
       const updatedDto: Partial<UpdateRestaurantDto> & {
         specialize_in?: FoodCategory[];
       } = {
-        owner_id,
-        promotions: promotions || undefined,
-        address_id,
-        images_gallery: images_gallery || undefined,
-        specialize_in:
-          specializeIn.length > 0 ? (specializeIn as any) : undefined // Chỉ cập nhật nếu có giá trị
+        ...updateRestaurantDto,
+        specialize_in: specializeIn.length > 0 ? specializeIn : undefined
       };
 
-      // Cập nhật restaurant
       const updatedRestaurant = await this.restaurantsRepository.update(
         id,
-        updatedDto as UpdateRestaurantDto & { specialize_in?: FoodCategory[] }
+        updatedDto
       );
-
       return createResponse(
         'OK',
         updatedRestaurant,
@@ -378,16 +349,17 @@ export class RestaurantsService {
       }
 
       const updatedOrder = await this.ordersRepository.updateStatus(orderId, {
-        status,
+        status: status as OrderStatus, // Ép kiểu để khớp enum
         tracking_info
-      } as { status: OrderStatus; tracking_info: OrderTrackingInfo });
+      });
 
       if (!updatedOrder) {
         return createResponse('NotFound', null, 'Order not found');
       }
 
+      // Gọi notifyPartiesOnce từ RestaurantsGateway thay vì emitOrderStatusUpdate
       if (this.restaurantsGateway) {
-        this.restaurantsGateway.emitOrderStatusUpdate(updatedOrder);
+        await this.restaurantsGateway.notifyPartiesOnce(updatedOrder); // Gọi private method qua kiểu này
       }
 
       return createResponse(
@@ -423,15 +395,17 @@ export class RestaurantsService {
     }
   }
 
+  // Trong RestaurantsService
   async findOne(id: string): Promise<ApiResponse<Restaurant>> {
     try {
       const restaurant = await this.restaurantsRepository.findById(id);
       if (!restaurant) {
         return createResponse('NotFound', null, 'Restaurant not found');
       }
+
       return createResponse(
         'OK',
-        restaurant,
+        restaurant, // promotions đã tự động populate
         'Restaurant retrieved successfully'
       );
     } catch (error) {
@@ -460,6 +434,141 @@ export class RestaurantsService {
     } catch (error) {
       console.error('Error deleting restaurant:', error);
       return createResponse('ServerError', null, 'Error deleting restaurant');
+    }
+  }
+
+  async updateImageGalleries(
+    uploadResults: Array<{ key: string; url: string }>,
+    entityId: string
+  ) {
+    try {
+      const restaurant = await this.restaurantsRepository.findById(entityId);
+      if (!restaurant) {
+        return createResponse('NotFound', null, 'Restaurant not found');
+      }
+
+      // Gọi phương thức updateImgGallery
+      const updatedRestaurant =
+        await this.restaurantsRepository.updateImgGallery(
+          entityId,
+          uploadResults
+        );
+
+      return createResponse(
+        'OK',
+        updatedRestaurant,
+        'Restaurant galleries updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating restaurant galleries:', error);
+      return createResponse('ServerError', null, 'Failed to update galleries');
+    }
+  }
+
+  // Trong RestaurantsService
+  async applyPromotion(
+    restaurantId: string,
+    promotionId: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const promotion = await this.promotionRepository.findById(promotionId);
+      if (!promotion)
+        return createResponse('NotFound', null, 'Promotion not found');
+
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      if (promotion.end_date < currentTimestamp)
+        return createResponse('EXPIRED', null, 'Promotion has expired');
+      if (promotion.start_date > currentTimestamp)
+        return createResponse(
+          'NOT_AVAILABLE',
+          null,
+          'Promotion is not yet available'
+        );
+
+      const restaurantDetails =
+        await this.restaurantsRepository.findById(restaurantId);
+      if (!restaurantDetails)
+        return createResponse('NotFound', null, 'Restaurant not found');
+
+      // Kiểm tra xem promotionId đã tồn tại trong restaurant.promotions chưa
+      const isPromotionExist = restaurantDetails.promotions.some(
+        p => p.id === promotionId
+      );
+      if (isPromotionExist) {
+        return createResponse(
+          'DuplicatedRecord',
+          null,
+          `Promotion ${promotionId} is already applied to this restaurant`
+        );
+      }
+
+      const restaurantWallet = await this.fWalletsRepository.findByUserId(
+        restaurantDetails.owner_id
+      );
+      if (!restaurantWallet)
+        return createResponse(
+          'NotFound',
+          null,
+          'Wallet not found for restaurant owner'
+        );
+
+      const transactionDto: CreateTransactionDto = {
+        user_id: restaurantDetails.owner_id,
+        fwallet_id: restaurantWallet.id,
+        transaction_type: 'PURCHASE',
+        amount: promotion.promotion_cost_price,
+        balance_after:
+          parseFloat(restaurantWallet.balance.toString()) -
+          +promotion.promotion_cost_price,
+        status: 'PENDING',
+        source: 'FWALLET',
+        destination: FLASHFOOD_FINANCE.id,
+        destination_type: 'FWALLET'
+      };
+
+      const transactionResponse =
+        await this.transactionsService.create(transactionDto);
+      if (transactionResponse.EC !== 0) {
+        return createResponse(
+          transactionResponse.EC === -8 ? 'InsufficientBalance' : 'ServerError',
+          null,
+          transactionResponse.EM || 'Failed to process transaction'
+        );
+      }
+
+      // Map updatedPromotions từ string[] sang Promotion[]
+      const updatedPromotionIds = Array.from(
+        new Set([
+          ...(restaurantDetails.promotions.map(p => p.id) || []),
+          promotionId
+        ])
+      );
+      const promotionEntities =
+        await this.promotionRepository.findByIds(updatedPromotionIds);
+      if (promotionEntities.length !== updatedPromotionIds.length) {
+        return createResponse(
+          'NotFound',
+          null,
+          'One or more promotions not found'
+        );
+      }
+
+      // Gán promotions vào restaurantDetails và save
+      restaurantDetails.promotions = promotionEntities;
+      await this.restaurantsRepository.repository.save(restaurantDetails);
+
+      return createResponse(
+        'OK',
+        {
+          transaction: transactionResponse.data,
+          restaurant: restaurantDetails,
+          promotion: promotionId
+        },
+        'Promotion applied successfully'
+      );
+    } catch (error) {
+      console.error('Error applying promotion:', error);
+      return createResponse('ServerError', null, 'Error applying promotion');
     }
   }
 }
