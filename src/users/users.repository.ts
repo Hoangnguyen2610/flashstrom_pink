@@ -16,6 +16,9 @@ export class UserRepository {
   }
 
   async create(userData: Partial<User>): Promise<User> {
+    console.log('cehck data', userData);
+    userData.created_at = new Date();
+    userData.updated_at = new Date();
     const newUser = this.repository.create(userData);
     return this.repository.save(newUser);
   }

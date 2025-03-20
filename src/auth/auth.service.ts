@@ -715,6 +715,7 @@ export class AuthService {
       is_verified: false,
       user_type: [type]
     });
+    console.log('chekca final resu here', newUser);
     await this.userRepository.update(newUser.id, {
       user_type: newUser.user_type
     });
