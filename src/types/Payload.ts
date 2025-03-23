@@ -5,7 +5,7 @@ export interface AddressPopulate {
   postal_code?: number;
   location?: {
     lat?: number;
-    lon?: number;
+    lng?: number;
   };
 }
 

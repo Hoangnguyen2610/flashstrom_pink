@@ -49,7 +49,7 @@ export class RestaurantsRepository {
       avatar: createDto.avatar,
       images_gallery: createDto.images_gallery || [],
       status: createDto.status,
-      promotions, // Gán Promotion[]
+      promotions,
       ratings: createDto.ratings,
       opening_hours: createDto.opening_hours,
       specialize_in,
@@ -70,18 +70,17 @@ export class RestaurantsRepository {
     });
   }
 
-  // Trong RestaurantsRepository
   async findById(id: string): Promise<Restaurant> {
     return await this.repository.findOne({
       where: { id },
-      relations: ['owner', 'address', 'specialize_in', 'promotions'] // Thêm 'promotions'
+      relations: ['owner', 'address', 'specialize_in', 'promotions']
     });
   }
 
   async findByOwnerId(ownerId: string): Promise<Restaurant> {
     return await this.repository.findOne({
       where: { owner_id: ownerId },
-      relations: ['owner', 'address', 'specialize_in']
+      relations: ['owner', 'address', 'specialize_in', 'promotions']
     });
   }
 
@@ -99,7 +98,7 @@ export class RestaurantsRepository {
 
     const updateData: DeepPartial<Restaurant> = {
       ...updateDto,
-      promotions, // Gán Promotion[]
+      promotions,
       updated_at: Math.floor(Date.now() / 1000)
     };
 
@@ -133,6 +132,7 @@ export class RestaurantsRepository {
       relations: ['owner', 'address', 'specialize_in']
     });
   }
+
   async updateImgGallery(
     id: string,
     imagesGallery: Array<{ key: string; url: string }>
@@ -150,10 +150,24 @@ export class RestaurantsRepository {
     ];
 
     await this.repository.update(id, {
-      images_gallery: updatedImagesGallery, // TypeORM sẽ tự động chuyển thành JSON cho jsonb
+      images_gallery: updatedImagesGallery,
       updated_at: Math.floor(Date.now() / 1000)
     });
 
     return await this.findById(id);
+  }
+
+  // Hàm mới để tăng total_orders
+  async incrementTotalOrders(restaurantId: string): Promise<void> {
+    const restaurant = await this.repository.findOne({
+      where: { id: restaurantId }
+    });
+    if (!restaurant) {
+      throw new Error(`Restaurant with ID ${restaurantId} not found`);
+    }
+    await this.repository.update(restaurantId, {
+      total_orders: restaurant.total_orders + 1,
+      updated_at: Math.floor(Date.now() / 1000)
+    });
   }
 }

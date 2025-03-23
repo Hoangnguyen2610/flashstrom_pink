@@ -21,7 +21,7 @@ export interface AddressPopulate {
   postal_code?: number;
   location?: {
     lat?: number;
-    lon?: number;
+    lng?: number;
   };
 }
 
@@ -299,9 +299,9 @@ export class CustomersService {
           // Calculate distance between customer and restaurant (in km)
           const distance = this.calculateDistance(
             customerLocation.lat,
-            customerLocation.lon,
+            customerLocation.lng,
             restaurantLocation.lat,
-            restaurantLocation.lon
+            restaurantLocation.lng
           );
 
           // Adjust how much distance impacts the score

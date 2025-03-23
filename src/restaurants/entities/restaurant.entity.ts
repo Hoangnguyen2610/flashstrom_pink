@@ -1,4 +1,3 @@
-// src/restaurants/entities/restaurant.entity.ts
 import {
   Entity,
   Column,
@@ -16,7 +15,7 @@ import { AddressBook } from 'src/address_book/entities/address_book.entity';
 import { FoodCategory } from 'src/food_categories/entities/food_category.entity';
 import { Admin } from 'src/admin/entities/admin.entity';
 import { Order } from 'src/orders/entities/order.entity';
-import { Promotion } from 'src/promotions/entities/promotion.entity'; // Thêm import
+import { Promotion } from 'src/promotions/entities/promotion.entity';
 
 @Entity('restaurants')
 export class Restaurant {
@@ -65,10 +64,9 @@ export class Restaurant {
     is_accepted_orders: boolean;
   };
 
-  // Thay promotions từ string[] thành quan hệ ManyToMany
   @ManyToMany(() => Promotion, promotion => promotion.restaurants)
   @JoinTable({
-    name: 'restaurant_promotions', // Tên bảng join
+    name: 'restaurant_promotions',
     joinColumn: { name: 'restaurant_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'promotion_id', referencedColumnName: 'id' }
   })
@@ -105,6 +103,9 @@ export class Restaurant {
   @Column({ name: 'updated_at' })
   updated_at: number;
 
+  @Column({ type: 'int', default: 0 }) // Thêm field total_orders
+  total_orders: number;
+
   @ManyToMany(() => Admin, admin => admin.assigned_restaurants)
   admins: Admin[];
 
@@ -116,5 +117,6 @@ export class Restaurant {
     this.id = `FF_RES_${uuidv4()}`;
     this.created_at = Math.floor(Date.now() / 1000);
     this.updated_at = Math.floor(Date.now() / 1000);
+    this.total_orders = 0; // Đặt giá trị mặc định trong logic nếu cần
   }
 }

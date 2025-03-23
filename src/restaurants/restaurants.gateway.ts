@@ -121,14 +121,26 @@ export class RestaurantsGateway
     return restaurant;
   }
 
-  @SubscribeMessage('newOrderForRestaurant')
+  @OnEvent('newOrderForRestaurant')
   async handleNewOrder(@MessageBody() order: any) {
-    const restaurantId = order.restaurant_id;
+    console.log('check falle here???', order);
     await this.server
-      .to(`restaurant_${restaurantId}`)
-      .emit('incomingOrder', order);
-    return order;
+      .to(`restaurant_${order.restaurant_id}`)
+      .emit('incomingOrderForRestaurant', order); //
+    console.log(
+      `Emitted notifyOrderStatus to restaurant_${order.restaurant_id}`
+    );
+    return {
+      event: 'newOrderForRestaurant',
+      data: order,
+      message: `Notified customer ${order.customer_id}`
+    };
   }
+
+  // @OnEvent('incomingOrderForRestaurant')
+  // async listenIncomingOrderForRestaurant(@MessageBody() order: any) {
+  //   return order;
+  // }
 
   @SubscribeMessage('restaurantAcceptWithAvailableDrivers')
   async handleRestaurantAcceptWithDrivers(
@@ -195,11 +207,12 @@ export class RestaurantsGateway
         if (!orderWithDistance) {
           throw new Error('Failed to retrieve updated order');
         }
+        console.log('cehck driver selected', selectedDriver);
 
-        await this.eventEmitter.emit(
-          'order.assignedToDriver',
-          orderWithDistance
-        );
+        await this.eventEmitter.emit('order.assignedToDriver', {
+          ...orderWithDistance,
+          driverListenerId: selectedDriver.id
+        });
         await this.notifyPartiesOnce(orderWithDistance);
 
         return { event: 'orderAssigned', data: orderWithDistance };

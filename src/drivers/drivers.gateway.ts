@@ -152,7 +152,6 @@ export class DriversGateway
     console.log('Emitted incomingOrder event to driver:', driverId, order);
     return order;
   }
-
   @SubscribeMessage('driverAcceptOrder')
   async handleDriverAcceptOrder(
     @MessageBody() data: { driverId: string; orderId: string }
@@ -173,23 +172,53 @@ export class DriversGateway
     try {
       const result = await this.dataSource.transaction(
         async transactionalEntityManager => {
-          // Logic giữ nguyên, chỉ cắt emit thừa
+          // Bước 1: Load order với lock, không join relation
           const order = await transactionalEntityManager
             .createQueryBuilder(Order, 'order')
             .setLock('pessimistic_write')
             .where('order.id = :id', { id: orderId })
             .getOne();
+
           if (!order) throw new WsException('Order not found');
 
-          if (order.driver_id && order.driver_id !== driverId) {
+          // Bước 2: Load các relation cần thiết, bao gồm nested address
+          const orderWithRelations = await transactionalEntityManager
+            .getRepository(Order)
+            .findOne({
+              where: { id: orderId },
+              relations: [
+                'customerAddress',
+                'restaurantAddress',
+                'customer',
+                'customer.address',
+                'restaurant',
+                'restaurant.address'
+              ]
+            });
+
+          console.log(
+            'check order with nested relations',
+            orderWithRelations?.customerAddress,
+            orderWithRelations?.restaurantAddress,
+            orderWithRelations?.customer,
+            orderWithRelations?.customer?.address,
+            orderWithRelations?.restaurant,
+            orderWithRelations?.restaurant?.address,
+            orderWithRelations
+          );
+
+          if (
+            orderWithRelations.driver_id &&
+            orderWithRelations.driver_id !== driverId
+          ) {
             throw new WsException(
-              `Order is already assigned to driver ${order.driver_id}`
+              `Order is already assigned to driver ${orderWithRelations.driver_id}`
             );
-          } else if (order.driver_id === driverId) {
+          } else if (orderWithRelations.driver_id === driverId) {
             return {
               success: true,
               message: 'Order already assigned to this driver',
-              order
+              order: orderWithRelations
             };
           }
 
@@ -232,10 +261,11 @@ export class DriversGateway
 
           let dps: DriverProgressStage;
           if (!existingDPS) {
+            // Tạo mới DPS
             const dpsResponse = await this.driverProgressStageService.create(
               {
                 driver_id: driverId,
-                orders: [order],
+                orders: [orderWithRelations],
                 current_state: 'driver_ready_order_1'
               },
               transactionalEntityManager
@@ -243,16 +273,115 @@ export class DriversGateway
             if (dpsResponse.EC !== 0 || !dpsResponse.data)
               throw new WsException(`Failed to create new DPS`);
             dps = dpsResponse.data;
+
+            // Gán location, customerDetails, restaurantDetails vào stages
+            dps.stages = dps.stages || [];
+            dps.stages = dps.stages.map(stage => {
+              if (
+                stage.state.startsWith('waiting_for_pickup_') ||
+                stage.state.startsWith('restaurant_pickup_')
+              ) {
+                stage.details = {
+                  ...stage.details,
+                  location: orderWithRelations.restaurantAddress?.location,
+                  restaurantDetails: orderWithRelations.restaurant
+                    ? {
+                        id: orderWithRelations.restaurant.id,
+                        restaurant_name:
+                          orderWithRelations.restaurant.restaurant_name,
+                        address: orderWithRelations.restaurant.address,
+                        avatar: orderWithRelations.restaurant.avatar,
+                        contact_phone:
+                          orderWithRelations.restaurant.contact_phone
+                      }
+                    : undefined
+                };
+              } else if (
+                stage.state.startsWith('en_route_to_customer_') ||
+                stage.state.startsWith('delivery_complete_')
+              ) {
+                stage.details = {
+                  ...stage.details,
+                  location: orderWithRelations.customerAddress?.location,
+                  customerDetails: orderWithRelations.customer
+                    ? {
+                        id: orderWithRelations.customer.id,
+                        first_name: orderWithRelations.customer.first_name,
+                        last_name: orderWithRelations.customer.last_name,
+                        address: orderWithRelations.customer.address,
+                        avatar: orderWithRelations.customer.avatar
+                      }
+                    : undefined
+                };
+              } else if (stage.state.startsWith('driver_ready_')) {
+                stage.details = {
+                  ...stage.details,
+                  location: driver.current_location
+                };
+              }
+              return stage;
+            });
+            await transactionalEntityManager.save(DriverProgressStage, dps);
           } else {
+            // Thêm order vào DPS hiện có
             const dpsResponse =
               await this.driverProgressStageService.addOrderToExistingDPS(
                 existingDPS.id,
-                order,
+                orderWithRelations,
                 transactionalEntityManager
               );
             if (dpsResponse.EC !== 0 || !dpsResponse.data)
               throw new WsException(`Failed to add order to existing DPS`);
             dps = dpsResponse.data;
+
+            // Gán location, customerDetails, restaurantDetails vào stages
+            dps.stages = dps.stages || [];
+            dps.stages = dps.stages.map(stage => {
+              if (
+                stage.state.startsWith('waiting_for_pickup_') ||
+                stage.state.startsWith('restaurant_pickup_')
+              ) {
+                stage.details = {
+                  ...stage.details,
+                  location: orderWithRelations.restaurantAddress?.location,
+                  restaurantDetails: orderWithRelations.restaurant
+                    ? {
+                        id: orderWithRelations.restaurant.id,
+                        restaurant_name:
+                          orderWithRelations.restaurant.restaurant_name,
+                        address: orderWithRelations.restaurant.address,
+                        avatar: orderWithRelations.restaurant.avatar,
+                        contact_phone:
+                          orderWithRelations.restaurant.contact_phone
+                      }
+                    : undefined
+                };
+              } else if (
+                stage.state.startsWith('en_route_to_customer_') ||
+                stage.state.startsWith('delivery_complete_')
+              ) {
+                stage.details = {
+                  ...stage.details,
+                  location: orderWithRelations.customerAddress?.location,
+                  customerDetails: orderWithRelations.customer
+                    ? {
+                        id: orderWithRelations.customer.id,
+                        first_name: orderWithRelations.customer.first_name,
+                        last_name: orderWithRelations.customer.last_name,
+                        address: orderWithRelations.customer.address,
+                        avatar: orderWithRelations.customer.avatar
+                      }
+                    : undefined
+                };
+              } else if (stage.state.startsWith('driver_ready_')) {
+                stage.details = {
+                  ...stage.details,
+                  location: driver.current_location
+                };
+              }
+              return stage;
+            });
+            await transactionalEntityManager.save(DriverProgressStage, dps);
           }
 
           const reloadedDps = await transactionalEntityManager
@@ -270,20 +399,25 @@ export class DriversGateway
           }
           dps = reloadedDps;
 
-          order.driver_id = driverId;
-          order.status = OrderStatus.DISPATCHED;
-          order.tracking_info = OrderTrackingInfo.DISPATCHED;
-          order.updated_at = Math.floor(Date.now() / 1000);
-          await transactionalEntityManager.save(Order, order);
+          orderWithRelations.driver_id = driverId;
+          orderWithRelations.status = OrderStatus.DISPATCHED;
+          orderWithRelations.tracking_info = OrderTrackingInfo.DISPATCHED;
+          orderWithRelations.updated_at = Math.floor(Date.now() / 1000);
+          await transactionalEntityManager.save(Order, orderWithRelations);
 
           driver.current_orders = driver.current_orders || [];
           if (!driver.current_orders.some(o => o.id === orderId))
-            driver.current_orders.push(order);
+            driver.current_orders.push(orderWithRelations);
           await transactionalEntityManager.save(Driver, driver);
 
-          await this.notifyPartiesOnce(order);
+          await this.notifyPartiesOnce(orderWithRelations);
 
-          return { success: true, order, dps };
+          await this.server
+            .to(`driver_${orderWithRelations.driver_id}`)
+            .emit('driverStagesUpdated', dps);
+          console.log('check emit correct', JSON.stringify(dps, null, 2));
+
+          return { success: true, order: orderWithRelations, dps };
         }
       );
 
@@ -558,6 +692,13 @@ export class DriversGateway
               transactionalEntityManager
             );
 
+          if (updateResult.EC === 0) {
+            await this.server
+              .to(`driver_${dps.driver_id}`)
+              .emit('driverStagesUpdated', updateResult.data);
+          }
+          console.log('check updatered result', updateResult);
+
           const updatedOrder = await this.ordersService.findOne(
             targetOrderId,
             transactionalEntityManager
@@ -588,41 +729,23 @@ export class DriversGateway
         tracking_info: order.tracking_info,
         updated_at: order.updated_at,
         customer_id: order.customer_id,
+        driver_avatar: order?.driver?.avatar,
+        restaurant_avatar: order?.restaurant?.avatar,
         driver_id: order.driver_id,
         restaurant_id: order.restaurant_id,
         driver_tips: order.driver_tips || 0 // Thêm driver_tips
       };
       this.eventEmitter.emit('listenUpdateOrderTracking', trackingUpdate);
-      this.eventEmitter.emit('notifyDriverOrderStatus', trackingUpdate); // Emit cho chính nó
-      this.server
-        .to(`restaurant_${order.restaurant_id}`)
-        .emit('notifyOrderStatus', trackingUpdate);
       console.log(`Emitted notifyOrderStatus for order ${order.id}`);
     } finally {
       this.notificationLock.delete(notifyKey);
     }
   }
 
-  @OnEvent('notifyDriverOrderStatus')
-  async handleNotifyDriverOrderStatus(@MessageBody() trackingUpdate: any) {
-    console.log(
-      'Received notifyDriverOrderStatus in DriversGateway:',
-      trackingUpdate
-    );
-    await this.server
-      .to(`driver_${trackingUpdate.driver_id}`)
-      .emit('notifyOrderStatus', trackingUpdate);
-    return {
-      event: 'notifyOrderStatus',
-      data: trackingUpdate,
-      message: `Notified driver ${trackingUpdate.driver_id}`
-    };
-  }
-
   @OnEvent('order.assignedToDriver')
   async handleOrderAssignedToDriver(orderAssignment: any) {
     try {
-      const driverId = orderAssignment.driver_id;
+      const driverId = orderAssignment.driverListenerId;
       if (!driverId) throw new WsException('Driver ID is required');
       await this.server
         .to(`driver_${driverId}`)
